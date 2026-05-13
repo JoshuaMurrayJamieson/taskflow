@@ -1223,8 +1223,10 @@
     background: rgba(0,0,0,0.5);
     z-index: 19;
     backdrop-filter: blur(2px);
+    opacity: 0;
+    transition: opacity 0.25s ease;
   }
-  #sidebarOverlay.open { display: block; }
+  #sidebarOverlay.open { opacity: 1; }
 
   /* TABLET — 769px to 1024px */
   @media (max-width: 1024px) and (min-width: 769px) {
@@ -1374,7 +1376,7 @@
   </div>
 </div>
 
-<div id="sidebarOverlay" onclick="closeSidebar()"></div>
+<div id="sidebarOverlay" onclick="closeSidebar()" ontouchend="closeSidebar()"></div>
 <div id="sidebar">
   <div class="sidebar-header">
     <div class="app-title"><i class="fa-solid fa-layer-group"></i> TaskFlow</div>
@@ -1755,6 +1757,7 @@ function selectDay(day) {
   currentDay = day;
   buildSidebar();
   renderContent();
+  if (window.innerWidth <= 768) closeSidebar();
 }
 
 // ============================================================
@@ -3115,22 +3118,29 @@ function saveNotesNow() {
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
-  const isOpen = sidebar.classList.contains('open');
-  if (isOpen) {
+  if (sidebar.classList.contains('open')) {
     closeSidebar();
   } else {
     sidebar.classList.add('open');
+    overlay.style.display = 'block';
+    // Force reflow then add open class for transition
+    overlay.offsetHeight;
     overlay.classList.add('open');
   }
 }
 function closeSidebar() {
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebarOverlay').classList.remove('open');
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  sidebar.classList.remove('open');
+  overlay.classList.remove('open');
+  // Hide overlay after transition completes
+  setTimeout(() => { overlay.style.display = 'none'; }, 260);
 }
 // Close sidebar when a day is selected on mobile
-const _origSelectDay = selectDay;
-function selectDay(day) {
-  _origSelectDay(day);
+function selectDayMobile(day) {
+  currentDay = day;
+  buildSidebar();
+  renderContent();
   if (window.innerWidth <= 768) closeSidebar();
 }
 
