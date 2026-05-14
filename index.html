@@ -1604,6 +1604,19 @@
     animation: timerPulse 1.4s ease-in-out infinite;
   }
   .timer-btn.running i { animation: spin 2s linear infinite; }
+  .task-card.timer-active {
+    border-color: var(--low) !important;
+    box-shadow: 0 0 0 0 rgba(77,207,142,0.5);
+    animation: taskCardPulse 1.8s ease-in-out infinite;
+  }
+  .task-card.timer-active > .task-row {
+    background: rgba(77,207,142,0.05);
+    border-radius: var(--radius) var(--radius) 0 0;
+  }
+  @keyframes taskCardPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(77,207,142,0.4); border-color: rgba(77,207,142,0.6) !important; }
+    50%       { box-shadow: 0 0 6px 3px rgba(77,207,142,0.15); border-color: var(--low) !important; }
+  }
   @keyframes timerPulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(77,207,142,0.4); }
     50%       { box-shadow: 0 0 0 4px rgba(77,207,142,0); }
@@ -2471,7 +2484,7 @@ function renderTask(task) {
     </div>`;
 
   return `
-  <div class="task-card ${task.completed ? 'done' : ''} ${dueClass}" id="tc_${task.id}">
+  <div class="task-card ${task.completed ? 'done' : ''} ${dueClass} ${activeTimerId===task.id ? 'timer-active' : ''}" id="tc_${task.id}">
     <div class="task-row ${isExpanded}" onclick="toggleExpand('${task.id}',event)">
       <div class="task-check ${task.completed ? 'checked' : ''}" onclick="toggleTask('${task.id}',event)">
         ${task.completed ? '<i class="fa-solid fa-check" style="font-size:9px"></i>' : ''}
@@ -2490,7 +2503,7 @@ function renderTask(task) {
             ? '<i class="fa-solid fa-stopwatch"></i> ' + fmtTimerMs(getTaskElapsed(task.id))
             : task.timerMs>0
               ? '<i class="fa-solid fa-stopwatch"></i> ' + fmtTimerMs(task.timerMs)
-              : '<i class="fa-regular fa-clock"></i> Start'}
+              : '<i class="fa-solid fa-play" style="font-size:9px"></i> Start'}
         </button>
         ${task.timerMs>0 ? `<button class="task-act-btn" title="Reset timer" onclick="resetTimer('${task.id}',event)" style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-rotate-left"></i></button>` : ''}
         <span class="priority-badge ${task.priority}">${task.priority}</span>
@@ -3844,9 +3857,12 @@ function updateTimerDisplay(taskId) {
     btn.className = 'timer-btn' + (isRunning ? ' running' : (ms > 0 ? ' has-time' : ''));
     btn.innerHTML = isRunning
       ? '<i class="fa-solid fa-stopwatch"></i> ' + fmtTimerMs(ms)
-      : (ms > 0 ? '<i class="fa-solid fa-stopwatch"></i> ' + fmtTimerMs(ms) : '<i class="fa-regular fa-stopwatch"></i> Start');
+      : (ms > 0 ? '<i class="fa-solid fa-stopwatch"></i> ' + fmtTimerMs(ms) : '<i class="fa-solid fa-play" style="font-size:9px"></i> Start');
     btn.title = isRunning ? 'Click to stop timer' : (ms > 0 ? 'Click to resume timer' : 'Click to start timer');
   }
+  // Toggle card flash — only the task card, not subtasks
+  const card = document.getElementById('tc_' + taskId);
+  if (card) card.classList.toggle('timer-active', isRunning);
 }
 
 // Restore timer state on page load
