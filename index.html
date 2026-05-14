@@ -1494,6 +1494,90 @@
   .archive-stat { display: flex; flex-direction: column; gap: 2px; }
   .archive-stat-val { font-size: 18px; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; }
 
+
+  /* ── SETTINGS PANEL ── */
+  .settings-panel {
+    display: none;
+    position: fixed;
+    left: 220px; bottom: 0;
+    width: 260px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: 4px -4px 24px rgba(0,0,0,0.35);
+    z-index: 40;
+    flex-direction: column;
+    overflow: hidden;
+    animation: slideUpPanel 0.18s ease;
+  }
+  @keyframes slideUpPanel {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  .settings-panel.open { display: flex; }
+  .settings-panel-header {
+    padding: 12px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .settings-panel-title {
+    font-size: 13px; font-weight: 700;
+    color: var(--text2); letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .settings-panel-body {
+    padding: 8px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .settings-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 13px; font-weight: 600;
+    color: var(--text2);
+    background: none; border: none;
+    font-family: 'Inter', sans-serif;
+    width: 100%; text-align: left;
+    transition: background var(--transition), color var(--transition);
+    line-height: 1.6;
+  }
+  .settings-item:hover { background: var(--bg3); color: var(--text); }
+  .settings-item i { width: 16px; text-align: center; font-size: 13px; flex-shrink: 0; }
+  .settings-item.danger { color: var(--high); }
+  .settings-item.danger:hover { background: var(--high-bg); }
+  .settings-divider {
+    height: 1px; background: var(--border);
+    margin: 4px 8px;
+  }
+  /* cog button at bottom of sidebar */
+  .sidebar-cog {
+    padding: 10px;
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .cog-btn {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 9px 14px;
+    cursor: pointer;
+    color: var(--text2);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+    transition: all var(--transition);
+    line-height: 1.6;
+  }
+  .cog-btn:hover { background: var(--border2); color: var(--text); }
+  .cog-btn i { transition: transform 0.3s ease; }
+  .cog-btn.open i { transform: rotate(90deg); }
+
+  @media (max-width: 768px) {
+    .settings-panel { left: 0; width: 280px; }
+  }
+
 </style>
 </head>
 <body>
@@ -1533,14 +1617,45 @@
     </div>
   </div>
   <nav class="day-nav" id="dayNav"></nav>
-  <div class="sidebar-actions">
+  <div class="sidebar-actions" style="padding:6px 10px;border-top:1px solid var(--border)">
     <button class="sidebar-btn flag-btn" onclick="toggleFlagsPanel()"><i class="fa-solid fa-flag"></i> View All Flags</button>
-    <button class="sidebar-btn" onclick="exportJSON()"><i class="fa-solid fa-download"></i> Download Backup</button>
-    <button class="sidebar-btn" onclick="document.getElementById('importFile').click()"><i class="fa-solid fa-upload"></i> Upload Backup</button>
-    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
-    <button class="sidebar-btn" onclick="selectDay('_archive')" style="color:var(--low);border-color:rgba(77,207,142,0.3)"><i class="fa-solid fa-box-archive"></i> Completed <span id="archiveBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--low-bg);border-radius:8px;padding:1px 6px;margin-left:2px"></span></button>
-    <button class="sidebar-btn" onclick="exportMarkdown()"><i class="fa-brands fa-markdown"></i> Markdown Save</button>
-    <button class="sidebar-btn" style="color:var(--high);border-color:rgba(240,93,93,0.3);margin-top:4px" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
+    <button class="sidebar-btn" onclick="selectDay('_archive')" style="color:var(--low);border-color:rgba(77,207,142,0.3)">
+      <i class="fa-solid fa-box-archive"></i> Task Archive
+      <span id="archiveBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--low-bg);border-radius:8px;padding:1px 6px;margin-left:auto"></span>
+    </button>
+  </div>
+  <div class="sidebar-cog">
+    <button class="cog-btn" id="cogBtn" onclick="toggleSettings()">
+      <i class="fa-solid fa-gear"></i> Settings
+    </button>
+  </div>
+  <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+</div>
+
+<!-- SETTINGS PANEL -->
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-panel-header">
+    <span class="settings-panel-title"><i class="fa-solid fa-gear" style="margin-right:6px"></i>Settings</span>
+    <button class="icon-btn" style="width:28px;height:28px;font-size:12px" onclick="closeSettings()"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="settings-panel-body">
+    <button class="settings-item" onclick="exportJSON();closeSettings()">
+      <i class="fa-solid fa-download" style="color:var(--accent)"></i> Download Backup
+    </button>
+    <button class="settings-item" onclick="document.getElementById('importFile').click();closeSettings()">
+      <i class="fa-solid fa-upload" style="color:var(--accent)"></i> Upload Backup
+    </button>
+    <button class="settings-item" onclick="exportMarkdown();closeSettings()">
+      <i class="fa-brands fa-markdown" style="color:var(--text2)"></i> Markdown Save
+    </button>
+    <div class="settings-divider"></div>
+    <button class="settings-item" onclick="toggleTheme();closeSettings()">
+      <i class="fa-solid fa-circle-half-stroke" style="color:var(--text2)"></i> Toggle Theme
+    </button>
+    <div class="settings-divider"></div>
+    <button class="settings-item danger" onclick="logout()">
+      <i class="fa-solid fa-right-from-bracket"></i> Log Out
+    </button>
   </div>
 </div>
 
@@ -3296,6 +3411,7 @@ document.addEventListener('keydown', e => {
     closeEditProgListModal();
     closeEditProgItemModal();
     closeColorWheelPopup();
+    closeSettings();
   }
   if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display !== 'none') {
     if (document.activeElement !== document.getElementById('fName')) return;
@@ -3443,6 +3559,8 @@ function renderArchive(content) {
     <input class="archive-search" type="text" placeholder="Search completed tasks…" value="${escHtml(archiveSearch)}" oninput="setArchiveSearch(this.value)">
   </div>`;
 
+  html += `<button id="testEmailBtn" onclick="sendTestEmail()" style="margin-bottom:16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 16px;cursor:pointer;color:var(--accent);font-family:'Inter',sans-serif;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;line-height:1.6;transition:all 0.18s ease" onmouseover="this.style.background='var(--bg3)'" onmouseout="this.style.background='var(--bg2)'"><i class="fa-solid fa-envelope"></i> Send Test Email</button>`;
+
   if (!filtered.length) {
     html += `<div class="archive-empty"><i class="fa-solid fa-box-open" style="font-size:28px;margin-bottom:10px;display:block"></i>${archive.length ? 'No results match your filter.' : 'No completed tasks yet.'}</div>`;
   } else {
@@ -3506,6 +3624,85 @@ function deleteArchiveRecord(archivedId, e) {
   renderContent();
   updateArchiveBadge();
   showToast('Record removed');
+}
+
+
+// ============================================================
+// SETTINGS PANEL
+// ============================================================
+function toggleSettings() {
+  const panel = document.getElementById('settingsPanel');
+  const btn = document.getElementById('cogBtn');
+  const isOpen = panel.classList.contains('open');
+  if (isOpen) {
+    closeSettings();
+  } else {
+    panel.classList.add('open');
+    btn.classList.add('open');
+  }
+}
+function closeSettings() {
+  document.getElementById('settingsPanel').classList.remove('open');
+  const btn = document.getElementById('cogBtn');
+  if (btn) btn.classList.remove('open');
+}
+// Close settings when clicking outside
+document.addEventListener('click', e => {
+  const panel = document.getElementById('settingsPanel');
+  const btn = document.getElementById('cogBtn');
+  if (panel && panel.classList.contains('open')) {
+    if (!panel.contains(e.target) && !btn.contains(e.target)) {
+      closeSettings();
+    }
+  }
+});
+
+// ============================================================
+// TEST EMAIL
+// ============================================================
+async function sendTestEmail() {
+  const btn = document.getElementById('testEmailBtn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Sending…'; }
+
+  const thisWeekArchive = archive.filter(r => {
+    if (!r.completedAt) return false;
+    const completed = new Date(r.completedAt);
+    const now = new Date();
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    return completed >= weekAgo;
+  });
+
+  const payload = {
+    type: 'test_email',
+    tasks,
+    archive,
+    weeklyArchive: thisWeekArchive,
+    generatedAt: new Date().toISOString(),
+    username: getUserId()
+  };
+
+  try {
+    const res = await fetch(API_URL.replace('/tasks', '/email'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Id': getUserId(),
+        'X-App-Secret': getAppSecret()
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (res.ok) {
+      showToast('Test email sent! Check your inbox ✓');
+    } else {
+      showToast('Email failed: ' + (data.error || res.status));
+    }
+  } catch (err) {
+    showToast('Email failed — check console');
+    console.error(err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-envelope"></i> Send Test Email'; }
+  }
 }
 
 // ============================================================
