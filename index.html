@@ -1628,6 +1628,49 @@
   }
   .timer-display.running { color: var(--low); border-color: rgba(77,207,142,0.3); background: var(--low-bg); }
 
+
+  /* ── PAUSE SESSION BUTTON ── */
+  .pause-session-btn {
+    background: var(--med-bg);
+    border: 1.5px solid var(--med);
+    border-radius: var(--radius-sm);
+    padding: 6px 14px;
+    cursor: pointer;
+    color: var(--med);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+    transition: all var(--transition);
+    line-height: 1.6;
+  }
+  .pause-session-btn:hover { background: rgba(240,184,77,0.2); }
+  .pause-session-btn.paused {
+    background: var(--low-bg);
+    border-color: var(--low);
+    color: var(--low);
+  }
+  .pause-session-btn.paused:hover { background: rgba(77,207,142,0.2); }
+
+  /* ── SUBTASK SECTIONS ── */
+  .subtask-section-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    padding: 6px 14px 4px 20px;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .subtask-section-label.flagged { color: var(--flag); }
+  .subtask-section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 2px 14px 2px 20px;
+  }
+
 </style>
 </head>
 <body>
@@ -1717,6 +1760,7 @@
     </div>
     <button id="menuToggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
     <div class="topbar-controls">
+      <button class="pause-session-btn" id="pauseSessionBtn" onclick="togglePauseSession()" style="display:none"><i class="fa-solid fa-pause"></i> Pause Session</button>
       <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()"><i class="fa-solid fa-circle-half-stroke"></i></button>
       <button class="add-task-btn" onclick="openAddModal()"><i class="fa-solid fa-plus"></i><span class="btn-label-full"> Add Task</span><span class="btn-label-short" style="display:none"> Add</span></button>
     </div>
@@ -2405,10 +2449,20 @@ function renderTask(task) {
     flagSection = `<span class="task-flag-note">🚩 ${escHtml(task.flagNote)}</span>`;
   }
 
+  const flaggedSubs = (task.subtasks || []).filter(s => s.flagNote);
+  const normalSubs  = (task.subtasks || []).filter(s => !s.flagNote);
+  const hasFlagged  = flaggedSubs.length > 0;
+
   let subtaskSection = `
     <div class="subtask-area ${task._expanded ? 'open' : ''}" id="sub_${task.id}">
       <div class="subtask-rail">
-        ${(task.subtasks || []).map(s => renderSubtask(task, s)).join('')}
+        ${hasFlagged ? `
+          <div class="subtask-section-label flagged"><i class="fa-solid fa-flag" style="font-size:9px"></i> Flagged (${flaggedSubs.length})</div>
+          ${flaggedSubs.map(s => renderSubtask(task, s)).join('')}
+          <div class="subtask-section-divider"></div>
+          <div class="subtask-section-label"><i class="fa-solid fa-list" style="font-size:9px"></i> All Subtasks (${(task.subtasks||[]).length})</div>
+        ` : ''}
+        ${normalSubs.map(s => renderSubtask(task, s)).join('')}
         <div class="add-subtask-row">
           <input class="subtask-input" id="sti_${task.id}" type="text" placeholder="Add subtask…" onkeydown="if(event.key==='Enter')addSubtask('${task.id}')">
           <button class="subtask-add-btn" onclick="addSubtask('${task.id}')">+ Add</button>
@@ -2432,8 +2486,11 @@ function renderTask(task) {
           id="timerbtn_${task.id}"
           onclick="toggleTimer('${task.id}',event)"
           title="${activeTimerId===task.id?'Stop timer':(task.timerMs>0?'Resume timer':'Start timer')}">
-          <i class="fa-${activeTimerId===task.id?'solid':'regular'} fa-stopwatch"></i>
-          ${activeTimerId===task.id ? fmtTimerMs(getTaskElapsed(task.id)) : (task.timerMs>0 ? fmtTimerMs(task.timerMs) : 'Start')}
+          ${activeTimerId===task.id
+            ? '<i class="fa-solid fa-stopwatch"></i> ' + fmtTimerMs(getTaskElapsed(task.id))
+            : task.timerMs>0
+              ? '<i class="fa-solid fa-stopwatch"></i> ' + fmtTimerMs(task.timerMs)
+              : '<i class="fa-regular fa-clock"></i> Start'}
         </button>
         ${task.timerMs>0 ? `<button class="task-act-btn" title="Reset timer" onclick="resetTimer('${task.id}',event)" style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-rotate-left"></i></button>` : ''}
         <span class="priority-badge ${task.priority}">${task.priority}</span>
@@ -3731,6 +3788,7 @@ function toggleTimer(taskId, e) {
       saveData();
     }
     updateTimerDisplay(taskId);
+    updatePauseSessionBtn();
     buildSidebar();
   } else {
     // Pause any currently running timer
@@ -3755,8 +3813,9 @@ function toggleTimer(taskId, e) {
     }
     activeTimerId = taskId;
     timerStartTime = Date.now();
-    timerInterval = setInterval(() => updateTimerDisplay(taskId), 1000);
+    timerInterval = setInterval(() => { updateTimerDisplay(taskId); }, 1000);
     updateTimerDisplay(taskId);
+    updatePauseSessionBtn();
     saveData();
   }
 }
@@ -3797,6 +3856,80 @@ function restoreTimers() {
       timerPausedMs[t.id] = t.timerMs;
     }
   });
+  // Restore pause session state if it was saved
+  const wasPaused = localStorage.getItem('wtm_session_paused');
+  if (wasPaused === 'true') {
+    sessionPaused = true;
+  }
+  setTimeout(updatePauseSessionBtn, 100);
+}
+
+
+// ============================================================
+// PAUSE SESSION — saves timer state across days/sessions
+// ============================================================
+let sessionPaused = false;
+
+function togglePauseSession() {
+  if (!activeTimerId && !sessionPaused) return; // nothing running
+
+  if (sessionPaused) {
+    // Resume session — restore paused timer state
+    sessionPaused = false;
+    const btn = document.getElementById('pauseSessionBtn');
+    if (btn) {
+      btn.classList.remove('paused');
+      btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Session';
+    }
+    localStorage.setItem('wtm_session_paused', 'false');
+    showToast('Session resumed ✓');
+    renderContent();
+    buildSidebar();
+  } else {
+    // Pause session — stop active timer and save state
+    if (activeTimerId) {
+      const elapsed = Date.now() - timerStartTime;
+      timerPausedMs[activeTimerId] = (timerPausedMs[activeTimerId] || 0) + elapsed;
+      const task = tasks.find(t => t.id === activeTimerId);
+      if (task) {
+        task.timerMs = timerPausedMs[activeTimerId];
+        task.timeEstimate = fmtMsToHuman(timerPausedMs[activeTimerId]);
+        task._sessionPausedAt = new Date().toISOString();
+      }
+      clearInterval(timerInterval);
+      timerInterval = null;
+      timerStartTime = null;
+      activeTimerId = null;
+      saveData();
+    }
+    sessionPaused = true;
+    const btn = document.getElementById('pauseSessionBtn');
+    if (btn) {
+      btn.classList.add('paused');
+      btn.innerHTML = '<i class="fa-solid fa-play"></i> Resume Session';
+    }
+    localStorage.setItem('wtm_session_paused', 'true');
+    showToast('Session paused — timer saved ✓');
+    renderContent();
+    buildSidebar();
+  }
+}
+
+function updatePauseSessionBtn() {
+  const btn = document.getElementById('pauseSessionBtn');
+  if (!btn) return;
+  if (activeTimerId || sessionPaused) {
+    btn.style.display = 'flex';
+    if (sessionPaused) {
+      btn.classList.add('paused');
+      btn.innerHTML = '<i class="fa-solid fa-play"></i> Resume Session';
+    } else {
+      btn.classList.remove('paused');
+      btn.innerHTML = '<i class="fa-solid fa-pause"></i> Pause Session';
+    }
+  } else {
+    btn.style.display = 'none';
+  }
 }
 
 // ============================================================
