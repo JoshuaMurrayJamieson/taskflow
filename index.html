@@ -77,9 +77,11 @@
     display: flex;
     flex-direction: column;
     height: 100vh;
+    max-height: 100vh;
     position: sticky;
     top: 0;
     z-index: 10;
+    overflow: hidden;
   }
   .sidebar-header {
     padding: 20px 18px 14px;
@@ -106,6 +108,7 @@
   .day-nav {
     padding: 10px 10px;
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -156,6 +159,9 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+    overflow-y: auto;
+    flex-shrink: 0;
+    max-height: 50vh;
   }
   .sidebar-btn {
     background: var(--bg3);
@@ -1900,39 +1906,51 @@ function renderOngoing(content) {
 // CARRYOVER — check at app load for yesterday's missed tasks
 // ============================================================
 function getDayBefore(dayName) {
-  const order = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  // We only care about our work days: Mon-Fri + Sun
+  // Returns the previous working day accounting for weekends
   const workOrder = ['Monday','Tuesday','Wednesday','Thursday','Friday','Sunday'];
   const idx = workOrder.indexOf(dayName);
-  if (idx <= 0) return null;
+  if (idx === -1) return null;
+  if (idx === 0) return 'Friday'; // Monday → missed Friday tasks
+  if (idx === 5) return 'Friday'; // Sunday → missed Friday tasks (Uni only)
   return workOrder[idx - 1];
 }
 
 function checkCarryover() {
   const todayStr = getTodayDate();
   const lastCheck = localStorage.getItem('wtm_carryover_check');
-  if (lastCheck === todayStr) return; // already ran today
+
+  // Only run once per calendar day, but run after cloud sync too
+  // We store the last check date — if already ran today with tasks loaded, skip
+  if (lastCheck === todayStr && tasks.length > 0) {
+    // Already ran today with data — only re-run if tasks came in from cloud
+    const lastTaskCount = parseInt(localStorage.getItem('wtm_carryover_task_count') || '0');
+    if (lastTaskCount === tasks.length) return;
+  }
+
   localStorage.setItem('wtm_carryover_check', todayStr);
+  localStorage.setItem('wtm_carryover_task_count', String(tasks.length));
 
   const today = getToday();
   const yesterday = getDayBefore(today);
   if (!yesterday) return;
 
+  let changed = false;
   tasks.forEach(task => {
     if (task.completed) return;
-    if (task.day === 'Daily') return; // daily tasks don't carry over individually
+    if (task.day === 'Daily') return; // Daily recurring tasks appear every day anyway
     const taskDays = getTaskDays(task);
     if (!taskDays.includes(yesterday)) return;
-    // Task was due yesterday and not completed → carryover
     if (!task.carriedOver) {
       task.carriedOver = true;
       task.carriedFromDay = yesterday;
       task.carriedDate = todayStr;
       task.originalPriority = task.originalPriority || task.priority;
-      task.priority = 'High'; // escalate
+      task.priority = 'High';
+      changed = true;
     }
   });
-  saveData();
+
+  if (changed) saveData();
 }
 
 function getCriticalTasks() {
@@ -2544,6 +2562,14 @@ function toggleTask(id, e) {
   const allSub = !task.subtasks || !task.subtasks.length || task.subtasks.every(s => s.completed);
   if (!allSub && !task.completed) { showToast('Complete all subtasks first!'); return; }
   task.completed = !task.completed;
+  // If completing a carried-over task, reset carryover so it starts fresh next occurrence
+  if (task.completed && task.carriedOver) {
+    task.carriedOver = false;
+    task.priority = task.originalPriority || task.priority;
+    delete task.carriedFromDay;
+    delete task.carriedDate;
+    delete task.originalPriority;
+  }
   saveData();
   renderContent();
   buildSidebar();
