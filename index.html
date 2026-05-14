@@ -424,14 +424,7 @@
     border-bottom: 1px solid var(--border);
   }
   .subtask-row:last-of-type { border-bottom: none; }
-  .subtask-code {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 10px;
-    line-height: 1.6;
-    color: var(--text3);
-    flex-shrink: 0;
-    min-width: 46px;
-  }
+  .subtask-code { display: none; }
   .subtask-name {
     flex: 1;
     font-size: 15px;
@@ -1353,6 +1346,154 @@
     .topbar-title { font-size: 17px; }
   }
 
+
+  /* ── SLIDE-OFF ANIMATION ── */
+  @keyframes slideOffRight {
+    0%   { transform: translateX(0);    opacity: 1; max-height: 120px; margin-bottom: 8px; }
+    60%  { transform: translateX(60px); opacity: 0; max-height: 120px; margin-bottom: 8px; }
+    100% { transform: translateX(60px); opacity: 0; max-height: 0;     margin-bottom: 0;   padding: 0; }
+  }
+  .task-card.sliding-off {
+    animation: slideOffRight 0.45s ease forwards;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  /* ── COMPLETED ARCHIVE ── */
+  .archive-filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .archive-filter-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text3);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all var(--transition);
+  }
+  .archive-filter-btn:hover { color: var(--text2); border-color: var(--border2); }
+  .archive-filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .archive-search {
+    flex: 1;
+    min-width: 160px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+    transition: border-color var(--transition);
+  }
+  .archive-search:focus { border-color: var(--accent); }
+  .archive-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 8px;
+    overflow: hidden;
+    transition: border-color var(--transition);
+  }
+  .archive-card:hover { border-color: var(--border2); }
+  .archive-card-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 10px 14px 12px;
+    cursor: pointer;
+  }
+  .archive-done-icon {
+    color: var(--low);
+    font-size: 13px;
+    align-self: center;
+    flex-shrink: 0;
+  }
+  .archive-task-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text2);
+    text-decoration: line-through;
+    line-height: 1.8;
+    padding-bottom: 2px;
+  }
+  .archive-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+    flex-shrink: 0;
+  }
+  .archive-date {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--low);
+  }
+  .archive-day-cat {
+    font-size: 10px;
+    color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .archive-body {
+    display: none;
+    padding: 10px 14px 14px;
+    border-top: 1px solid var(--border);
+    background: color-mix(in srgb, var(--bg3) 50%, var(--bg2));
+  }
+  .archive-body.open { display: block; }
+  .archive-notes {
+    font-size: 13px;
+    color: var(--text2);
+    line-height: 1.7;
+    white-space: pre-wrap;
+    margin-bottom: 8px;
+    padding: 8px 10px;
+    background: var(--bg3);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+  .archive-subtask-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 12px;
+    color: var(--text3);
+  }
+  .archive-subtask-row i { color: var(--low); font-size: 10px; }
+  .archive-delete-btn {
+    background: none; border: none;
+    color: var(--text3); cursor: pointer;
+    font-size: 11px; padding: 2px 6px;
+    border-radius: 4px; transition: color var(--transition);
+    align-self: center;
+  }
+  .archive-delete-btn:hover { color: var(--high); }
+  .archive-empty {
+    text-align: center; color: var(--text3);
+    padding: 40px 20px; font-size: 13px;
+  }
+  .archive-stats {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    margin-bottom: 16px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 12px; color: var(--text2);
+  }
+  .archive-stat { display: flex; flex-direction: column; gap: 2px; }
+  .archive-stat-val { font-size: 18px; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; }
+
 </style>
 </head>
 <body>
@@ -1397,6 +1538,7 @@
     <button class="sidebar-btn" onclick="exportJSON()"><i class="fa-solid fa-download"></i> Download Backup</button>
     <button class="sidebar-btn" onclick="document.getElementById('importFile').click()"><i class="fa-solid fa-upload"></i> Upload Backup</button>
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+    <button class="sidebar-btn" onclick="selectDay('_archive')" style="color:var(--low);border-color:rgba(77,207,142,0.3)"><i class="fa-solid fa-box-archive"></i> Completed <span id="archiveBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--low-bg);border-radius:8px;padding:1px 6px;margin-left:2px"></span></button>
     <button class="sidebar-btn" onclick="exportMarkdown()"><i class="fa-brands fa-markdown"></i> Markdown Save</button>
     <button class="sidebar-btn" style="color:var(--high);border-color:rgba(240,93,93,0.3);margin-top:4px" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
   </div>
@@ -1534,6 +1676,7 @@ const PRIORITY_ORDER = ['High','Medium','Low'];
 const TODAY_JS_MAP = {0:'Sunday',1:'Monday',2:'Tuesday',3:'Wednesday',4:'Thursday',5:'Friday',6:'Saturday'};
 
 let tasks = [];
+let archive = []; // completed task records
 let currentDay = null;
 let editingId = null;
 let flagTarget = null; // {type:'task'|'subtask', taskId, subtaskId?}
@@ -1605,6 +1748,7 @@ function setSyncStatus(status, msg) {
 async function loadData() {
   // Always load from localStorage first so app is instant
   try { tasks = JSON.parse(localStorage.getItem('wtm_tasks') || '[]'); } catch { tasks = []; }
+  try { archive = JSON.parse(localStorage.getItem('wtm_archive') || '[]'); } catch { archive = []; }
   const localTasks = [...tasks];
 
   // Then try to sync with cloud
@@ -1617,6 +1761,7 @@ async function loadData() {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     const cloudTasks = data.tasks || [];
+    const cloudArchive = data.archive || [];
 
     if (cloudTasks.length === 0 && localTasks.length > 0) {
       // Cloud is empty but we have local data — push local up to cloud
@@ -1628,6 +1773,7 @@ async function loadData() {
       // Cloud has data — use it as source of truth
       tasks = cloudTasks;
       localStorage.setItem('wtm_tasks', JSON.stringify(tasks));
+      if (cloudArchive.length > 0) { archive = cloudArchive; localStorage.setItem('wtm_archive', JSON.stringify(archive)); }
       setSyncStatus('ok', 'Synced');
     } else {
       // Both empty
@@ -1655,7 +1801,7 @@ async function pushToCloud() {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-User-Id': getUserId(), 'X-App-Secret': getAppSecret() },
-      body: JSON.stringify({ tasks })
+      body: JSON.stringify({ tasks, archive })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     setSyncStatus('ok', 'Saved to cloud');
@@ -1807,6 +1953,7 @@ function renderContent() {
   if (currentDay === '_ongoing') { renderOngoing(content); return; }
   if (currentDay === '_critical') { renderCritical(content); return; }
   if (currentDay === '_carryover') { renderCarryover(content); return; }
+  if (currentDay === '_archive') { renderArchive(content); return; }
 
   const day = currentDay;
 
@@ -2012,21 +2159,57 @@ function renderCarryover(content) {
 
   let html = `<div class="carryover-section">
     <div class="carryover-heading"><i class="fa-solid fa-rotate-left"></i> Carried Over Tasks <span class="carryover-badge">All escalated to High</span></div>`;
+
   carried.forEach(t => {
     const catClass = t.category === 'Work' ? 'work' : 'uni';
+    const allSubDone = !t.subtasks || !t.subtasks.length || t.subtasks.every(s => s.completed);
+    const hasSubtasks = t.subtasks && t.subtasks.length > 0;
     html += `
-    <div class="task-card overdue" style="margin-bottom:8px;cursor:pointer" onclick="selectDay('${t.day}')">
-      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;">
+    <div class="task-card overdue" style="margin-bottom:8px" id="tc_co_${t.id}">
+      <div style="display:flex;align-items:baseline;gap:10px;padding:12px 14px 14px">
+        <div class="task-check ${t.completed ? 'checked' : ''}"
+             style="align-self:center;flex-shrink:0"
+             onclick="toggleCarryoverTask('${t.id}',event)"
+             title="${!allSubDone ? 'Complete all subtasks first' : 'Mark complete'}">
+          ${t.completed ? '<i class="fa-solid fa-check" style="font-size:9px"></i>' : ''}
+        </div>
         <span class="task-code ${catClass}">${t.code}</span>
-        <span style="flex:1;font-size:15px;font-weight:600">${escHtml(t.name)}</span>
+        <span style="flex:1;font-size:15px;font-weight:600;line-height:1.8;padding-bottom:2px;${t.completed ? 'text-decoration:line-through;color:var(--text3)' : ''}">${escHtml(t.name)}</span>
         <span class="priority-badge High">High</span>
-        <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">From ${t.carriedFromDay || '?'}</span>
-        <button class="task-act-btn" title="Dismiss carryover" onclick="dismissCarryover('${t.id}',event)" style="color:var(--text3)"><i class="fa-solid fa-xmark"></i></button>
+        <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace;align-self:center">From ${t.carriedFromDay || '?'}</span>
+        ${hasSubtasks ? `<span style="font-size:11px;color:var(--text3);align-self:center" title="Has subtasks"><i class="fa-solid fa-list"></i> ${t.subtasks.filter(s=>s.completed).length}/${t.subtasks.length}</span>` : ''}
+        <button class="task-act-btn" title="Go to day" onclick="selectDay('${t.day}')" style="align-self:center"><i class="fa-solid fa-arrow-right" style="font-size:11px"></i></button>
+        <button class="task-act-btn" title="Dismiss carryover" onclick="dismissCarryover('${t.id}',event)" style="color:var(--text3);align-self:center"><i class="fa-solid fa-xmark"></i></button>
       </div>
     </div>`;
   });
+
   html += `</div>`;
   content.innerHTML = html;
+}
+
+function toggleCarryoverTask(taskId, e) {
+  if (e) e.stopPropagation();
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const allSubDone = !task.subtasks || !task.subtasks.length || task.subtasks.every(s => s.completed);
+  if (!allSubDone && !task.completed) {
+    showToast('Complete all subtasks first — go to the day view');
+    return;
+  }
+  task.completed = !task.completed;
+  // Reset carryover when completed
+  if (task.completed) {
+    task.carriedOver = false;
+    task.priority = task.originalPriority || task.priority;
+    delete task.carriedFromDay;
+    delete task.carriedDate;
+    delete task.originalPriority;
+  }
+  saveData();
+  renderContent();
+  buildSidebar();
+  if (task.completed) showToast('Task completed ✓');
 }
 
 function dismissCarryover(taskId, e) {
@@ -2117,7 +2300,6 @@ function renderSubtask(task, s) {
       <div class="subtask-check ${s.completed ? 'checked' : ''}" onclick="toggleSubtask('${task.id}','${s.id}')">
         ${s.completed ? '<i class="fa-solid fa-check" style="font-size:8px"></i>' : ''}
       </div>
-      <span class="subtask-code">${escHtml(s.code)}</span>
       <span class="subtask-name ${s.completed ? 'done' : ''}">${escHtml(s.name)}</span>
       ${s.flagNote ? `<span class="subtask-flag-note">🚩 ${escHtml(s.flagNote)}</span>` : ''}
       <div class="subtask-actions">
@@ -2560,19 +2742,59 @@ function toggleTask(id, e) {
   const task = tasks.find(t => t.id === id);
   if (!task) return;
   const allSub = !task.subtasks || !task.subtasks.length || task.subtasks.every(s => s.completed);
-  if (!allSub && !task.completed) { showToast('Complete all subtasks first!'); return; }
-  task.completed = !task.completed;
-  // If completing a carried-over task, reset carryover so it starts fresh next occurrence
-  if (task.completed && task.carriedOver) {
+  if (!allSub) { showToast('Complete all subtasks first!'); return; }
+
+  // Slide off then archive
+  const card = document.getElementById('tc_' + id);
+  if (card) {
+    card.classList.add('sliding-off');
+    setTimeout(() => archiveTask(id), 460);
+  } else {
+    archiveTask(id);
+  }
+}
+
+function archiveTask(id) {
+  const idx = tasks.findIndex(t => t.id === id);
+  if (idx === -1) return;
+  const task = tasks[idx];
+
+  // Reset carryover if needed
+  if (task.carriedOver) {
     task.carriedOver = false;
     task.priority = task.originalPriority || task.priority;
     delete task.carriedFromDay;
     delete task.carriedDate;
     delete task.originalPriority;
   }
-  saveData();
+
+  // Create archive record with timestamp
+  const record = {
+    ...task,
+    completedAt: new Date().toISOString(),
+    completedDate: getTodayDate(),
+    completedTime: new Date().toLocaleTimeString('en-AU', {hour:'2-digit', minute:'2-digit'}),
+    archivedId: uid()
+  };
+  archive.unshift(record); // newest first
+
+  // Remove from active tasks
+  tasks.splice(idx, 1);
+
+  // Save both
+  localStorage.setItem('wtm_tasks', JSON.stringify(tasks));
+  localStorage.setItem('wtm_archive', JSON.stringify(archive));
+  saveData(); // also push to cloud
+
   renderContent();
   buildSidebar();
+  updateArchiveBadge();
+  showToast('Task completed ✓');
+}
+
+function updateArchiveBadge() {
+  const b = document.getElementById('archiveBadge');
+  if (b) b.textContent = archive.length || '';
 }
 
 function toggleSubtask(taskId, subId) {
@@ -2962,7 +3184,7 @@ function loadTheme() {
 // EXPORT / IMPORT
 // ============================================================
 function exportJSON() {
-  const blob = new Blob([JSON.stringify({tasks, exported: new Date().toISOString()}, null, 2)], {type:'application/json'});
+  const blob = new Blob([JSON.stringify({tasks, archive, exported: new Date().toISOString()}, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'taskflow-backup-' + getTodayDate() + '.json';
@@ -2978,9 +3200,14 @@ function importJSON(e) {
       const data = JSON.parse(ev.target.result);
       if (data.tasks && Array.isArray(data.tasks)) {
         tasks = data.tasks;
+        if (data.archive && Array.isArray(data.archive)) {
+          archive = data.archive;
+          localStorage.setItem('wtm_archive', JSON.stringify(archive));
+        }
         saveData();
         renderContent();
         buildSidebar();
+        updateArchiveBadge();
         showToast('Backup imported ✓');
       } else { showToast('Invalid backup file'); }
     } catch { showToast('Failed to parse file'); }
@@ -3024,6 +3251,20 @@ function exportMarkdown() {
       md += `- ${check} \`${t.code}\` **${t.name}** _(${t.category})_\n`;
     });
   }
+  // Completed archive section
+  if (archive.length) {
+    md += `\n---\n## ✅ Completed Archive\n_${archive.length} tasks completed_\n\n`;
+    archive.forEach(r => {
+      md += `- ✅ \`${r.code}\` **${r.name}** · _${r.completedDate} ${r.completedTime||''}_`;
+      md += ` · ${r.day} · ${r.category}`;
+      if (r.notes) md += `\n  > ${r.notes.replace(/\n/g, '\n  > ')}`;
+      (r.subtasks||[]).forEach(s => {
+        md += `\n  - [${s.completed?'x':' '}] ${s.name}`;
+      });
+      md += '\n';
+    });
+  }
+
   const blob = new Blob([md], {type:'text/markdown'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
@@ -3170,6 +3411,103 @@ function selectDayMobile(day) {
   if (window.innerWidth <= 768) closeSidebar();
 }
 
+
+// ============================================================
+// COMPLETED ARCHIVE
+// ============================================================
+let archiveFilter = 'All';
+let archiveSearch = '';
+let archiveExpandedId = null;
+
+function renderArchive(content) {
+  updateArchiveBadge();
+  const filtered = archive.filter(r => {
+    if (archiveFilter !== 'All' && r.category !== archiveFilter) return false;
+    if (archiveSearch && !r.name.toLowerCase().includes(archiveSearch.toLowerCase())) return false;
+    return true;
+  });
+
+  const totalMins = archive.reduce((a, r) => a + parseMinutes(r.timeEstimate), 0);
+
+  let html = `
+  <div class="archive-stats">
+    <div class="archive-stat"><span class="archive-stat-val">${archive.length}</span><span>Total completed</span></div>
+    <div class="archive-stat"><span class="archive-stat-val">${archive.filter(r=>r.category==='Work').length}</span><span>Work tasks</span></div>
+    <div class="archive-stat"><span class="archive-stat-val">${archive.filter(r=>r.category==='University').length}</span><span>Uni tasks</span></div>
+    <div class="archive-stat"><span class="archive-stat-val">${fmtMins(totalMins)}</span><span>Total time logged</span></div>
+  </div>
+  <div class="archive-filters">
+    <button class="archive-filter-btn ${archiveFilter==='All'?'active':''}" onclick="setArchiveFilter('All')">All</button>
+    <button class="archive-filter-btn ${archiveFilter==='Work'?'active':''}" onclick="setArchiveFilter('Work')"><i class="fa-solid fa-briefcase" style="font-size:10px"></i> Work</button>
+    <button class="archive-filter-btn ${archiveFilter==='University'?'active':''}" onclick="setArchiveFilter('University')"><i class="fa-solid fa-graduation-cap" style="font-size:10px"></i> Uni</button>
+    <input class="archive-search" type="text" placeholder="Search completed tasks…" value="${escHtml(archiveSearch)}" oninput="setArchiveSearch(this.value)">
+  </div>`;
+
+  if (!filtered.length) {
+    html += `<div class="archive-empty"><i class="fa-solid fa-box-open" style="font-size:28px;margin-bottom:10px;display:block"></i>${archive.length ? 'No results match your filter.' : 'No completed tasks yet.'}</div>`;
+  } else {
+    filtered.forEach(r => {
+      const isOpen = archiveExpandedId === r.archivedId;
+      const catClass = r.category === 'Work' ? 'work' : 'uni';
+      const dt = r.completedAt ? new Date(r.completedAt).toLocaleString('en-AU', {day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : r.completedDate;
+      html += `
+      <div class="archive-card" id="arc_${r.archivedId}">
+        <div class="archive-card-header" onclick="toggleArchiveExpand('${r.archivedId}')">
+          <i class="fa-solid fa-circle-check archive-done-icon"></i>
+          <span class="task-code ${catClass}" style="align-self:center">${r.code}</span>
+          <span class="archive-task-name">${escHtml(r.name)}</span>
+          <div class="archive-meta">
+            <span class="archive-date"><i class="fa-regular fa-clock" style="font-size:9px"></i> ${dt}</span>
+            <span class="archive-day-cat">${r.day} · ${r.category}</span>
+          </div>
+          <button class="archive-delete-btn" title="Remove from archive" onclick="deleteArchiveRecord('${r.archivedId}',event)"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div class="archive-body ${isOpen ? 'open' : ''}" id="arcb_${r.archivedId}">
+          ${r.notes ? `<div class="archive-notes">${escHtml(r.notes)}</div>` : ''}
+          ${r.flagNote ? `<div style="font-size:12px;color:var(--flag);margin-bottom:8px">🚩 ${escHtml(r.flagNote)}</div>` : ''}
+          ${r.dueDate ? `<div style="font-size:12px;color:var(--text3);margin-bottom:8px;font-family:'JetBrains Mono',monospace">Due date was: ${r.dueDate}</div>` : ''}
+          ${(r.subtasks||[]).length ? `
+            <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3);margin-bottom:6px">Subtasks</div>
+            ${(r.subtasks||[]).map(s => `
+              <div class="archive-subtask-row">
+                <i class="fa-solid fa-${s.completed?'circle-check':'circle'}"></i>
+                <span>${escHtml(s.name)}</span>
+                ${s.flagNote ? `<span style="color:var(--flag);font-size:10px">🚩 ${escHtml(s.flagNote)}</span>` : ''}
+              </div>`).join('')}
+          ` : ''}
+          ${r.timeEstimate ? `<div style="font-size:11px;color:var(--text3);margin-top:8px;font-family:'JetBrains Mono',monospace">Time estimate: ${r.timeEstimate}</div>` : ''}
+        </div>
+      </div>`;
+    });
+  }
+  content.innerHTML = html;
+}
+
+function toggleArchiveExpand(archivedId) {
+  archiveExpandedId = archiveExpandedId === archivedId ? null : archivedId;
+  if (currentDay === '_archive') renderContent();
+}
+
+function setArchiveFilter(f) {
+  archiveFilter = f;
+  if (currentDay === '_archive') renderContent();
+}
+
+function setArchiveSearch(val) {
+  archiveSearch = val;
+  if (currentDay === '_archive') renderContent();
+}
+
+function deleteArchiveRecord(archivedId, e) {
+  if (e) e.stopPropagation();
+  if (!confirm('Remove this record from the archive?')) return;
+  archive = archive.filter(r => r.archivedId !== archivedId);
+  localStorage.setItem('wtm_archive', JSON.stringify(archive));
+  renderContent();
+  updateArchiveBadge();
+  showToast('Record removed');
+}
+
 // ============================================================
 // FRIDAY AUTO-BACKUP
 // ============================================================
@@ -3202,9 +3540,11 @@ if (!DAYS.includes(currentDay)) currentDay = 'Monday';
 function initApp() {
   // Load local data first so UI is instant
   try { tasks = JSON.parse(localStorage.getItem('wtm_tasks') || '[]'); } catch { tasks = []; }
+  try { archive = JSON.parse(localStorage.getItem('wtm_archive') || '[]'); } catch { archive = []; }
   checkCarryover();
   buildSidebar();
   renderContent();
+  updateArchiveBadge();
   checkFridayBackup();
 
   // Then sync from cloud in background
