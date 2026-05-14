@@ -1693,6 +1693,207 @@
     margin: 2px 14px 2px 20px;
   }
 
+
+  /* ══════════════════════════════════════════════
+     SEMESTER PLANNER
+     ══════════════════════════════════════════════ */
+  .planner-toolbar {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .planner-nav-btn {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); width: 32px; height: 32px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; color: var(--text2); font-size: 13px;
+    transition: all var(--transition); flex-shrink: 0;
+  }
+  .planner-nav-btn:hover { background: var(--bg3); color: var(--text); }
+  .planner-month-label {
+    font-size: 16px; font-weight: 800; color: var(--text);
+    min-width: 160px; text-align: center;
+  }
+  .planner-view-toggle {
+    display: flex; gap: 2px; margin-left: auto;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 3px;
+  }
+  .planner-view-btn {
+    background: none; border: none;
+    border-radius: 4px; padding: 4px 12px;
+    cursor: pointer; font-family: 'Inter', sans-serif;
+    font-size: 12px; font-weight: 700; color: var(--text3);
+    transition: all var(--transition); line-height: 1.5;
+  }
+  .planner-view-btn.active { background: var(--bg2); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .planner-add-btn {
+    background: var(--accent); border: none;
+    border-radius: var(--radius-sm); padding: 7px 14px;
+    cursor: pointer; color: #fff;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px;
+    transition: background var(--transition); line-height: 1.5;
+  }
+  .planner-add-btn:hover { background: var(--accent2); }
+
+  /* Semester settings bar */
+  .semester-settings-bar {
+    display: flex; gap: 10px; align-items: center;
+    margin-bottom: 14px; flex-wrap: wrap;
+    padding: 10px 14px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .semester-settings-bar label {
+    font-size: 11px; font-weight: 700; color: var(--text3);
+    text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap;
+  }
+  .semester-date-input {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--text); outline: none;
+    transition: border-color var(--transition);
+  }
+  .semester-date-input:focus { border-color: var(--accent); }
+
+  /* Gantt grid */
+  .gantt-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg2);
+  }
+  .gantt-grid {
+    min-width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .gantt-header-row th {
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    padding: 0;
+    font-size: 10px; font-weight: 700;
+    color: var(--text3);
+    text-align: center;
+    user-select: none;
+    white-space: nowrap;
+  }
+  .gantt-header-row th.today-col {
+    background: rgba(79,142,247,0.12);
+    color: var(--accent);
+  }
+  .gantt-header-label { width: 180px; min-width: 180px; text-align: left !important; padding: 8px 12px !important; }
+  .gantt-day-header { width: 28px; min-width: 28px; padding: 6px 2px !important; }
+  .gantt-day-header.weekend { background: rgba(255,255,255,0.02); }
+  .gantt-month-header {
+    background: var(--bg3) !important;
+    font-size: 11px; font-weight: 800;
+    color: var(--text2) !important;
+    text-align: left !important;
+    padding: 4px 8px !important;
+    border-bottom: 1px solid var(--border) !important;
+  }
+
+  /* Assignment rows */
+  .gantt-assignment-row td {
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+    height: 38px;
+    vertical-align: middle;
+  }
+  .gantt-assignment-row td.today-col { background: rgba(79,142,247,0.05); }
+  .gantt-assignment-row td.weekend-col { background: rgba(255,255,255,0.01); }
+  .gantt-label-cell {
+    padding: 6px 10px !important;
+    white-space: nowrap; overflow: hidden;
+    background: var(--bg2) !important;
+    position: sticky; left: 0; z-index: 2;
+    border-right: 2px solid var(--border2) !important;
+    min-width: 180px;
+  }
+  .gantt-label-inner {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .gantt-color-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%; flex-shrink: 0;
+  }
+  .gantt-assignment-name {
+    font-size: 12px; font-weight: 700; color: var(--text);
+    flex: 1; overflow: hidden; text-overflow: ellipsis;
+    line-height: 1.5;
+  }
+  .gantt-course-name {
+    font-size: 10px; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.5;
+  }
+  .gantt-label-actions {
+    display: flex; gap: 2px; opacity: 0;
+    transition: opacity var(--transition);
+  }
+  .gantt-assignment-row:hover .gantt-label-actions { opacity: 1; }
+
+  /* Bar cells */
+  .gantt-bar-cell {
+    cursor: pointer;
+    transition: filter var(--transition);
+    position: relative;
+  }
+  .gantt-bar-cell:hover { filter: brightness(1.2); }
+  .gantt-bar-cell .bar-inner {
+    height: 24px;
+    margin: 7px 1px;
+    border-radius: 3px;
+    display: flex; align-items: center;
+    justify-content: center;
+    font-size: 9px; font-weight: 700;
+    color: rgba(255,255,255,0.9);
+    overflow: hidden;
+    white-space: nowrap;
+    padding: 0 3px;
+    line-height: 1.5;
+  }
+  .gantt-bar-cell.bar-start .bar-inner { border-radius: 12px 3px 3px 12px; margin-left: 4px; }
+  .gantt-bar-cell.bar-end   .bar-inner { border-radius: 3px 12px 12px 3px; margin-right: 4px; }
+  .gantt-bar-cell.bar-start.bar-end .bar-inner { border-radius: 12px; margin: 7px 4px; }
+  .gantt-bar-cell.bar-due   .bar-inner { border-right: 3px solid rgba(255,255,255,0.8) !important; }
+  .gantt-bar-cell.has-note .bar-inner::after {
+    content: '●';
+    position: absolute;
+    top: 3px; right: 3px;
+    font-size: 6px;
+    color: rgba(255,255,255,0.9);
+  }
+
+  /* Day note tooltip */
+  .gantt-note-tooltip {
+    position: absolute; z-index: 100;
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: var(--radius-sm); padding: 8px 12px;
+    font-size: 12px; color: var(--text);
+    box-shadow: var(--shadow);
+    max-width: 200px; white-space: pre-wrap;
+    pointer-events: none;
+    animation: fadeIn 0.15s ease;
+  }
+
+  /* Course legend */
+  .planner-legend {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-top: 14px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text2);
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 3px 10px;
+  }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
 </style>
 </head>
 <body>
@@ -1734,6 +1935,7 @@
   <nav class="day-nav" id="dayNav"></nav>
   <div class="sidebar-actions" style="padding:6px 10px;border-top:1px solid var(--border)">
     <button class="sidebar-btn flag-btn" onclick="toggleFlagsPanel()"><i class="fa-solid fa-flag"></i> View All Flags</button>
+    <button class="sidebar-btn" onclick="selectDay('_semester')" style="color:var(--uni);border-color:rgba(56,189,248,0.3)"><i class="fa-solid fa-calendar-days"></i> Semester Planner</button>
     <button class="sidebar-btn" onclick="selectDay('_archive')" style="color:var(--low);border-color:rgba(77,207,142,0.3)">
       <i class="fa-solid fa-box-archive"></i> Task Archive
       <span id="archiveBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--low-bg);border-radius:8px;padding:1px 6px;margin-left:auto"></span>
@@ -1974,6 +2176,7 @@ async function loadData() {
   // Always load from localStorage first so app is instant
   try { tasks = JSON.parse(localStorage.getItem('wtm_tasks') || '[]'); } catch { tasks = []; }
   try { archive = JSON.parse(localStorage.getItem('wtm_archive') || '[]'); } catch { archive = []; }
+  try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
   const localTasks = [...tasks];
 
   // Then try to sync with cloud
@@ -2179,6 +2382,7 @@ function renderContent() {
   if (currentDay === '_critical') { renderCritical(content); return; }
   if (currentDay === '_carryover') { renderCarryover(content); return; }
   if (currentDay === '_archive') { renderArchive(content); return; }
+  if (currentDay === '_semester') { renderSemesterPlanner(content); return; }
 
   const day = currentDay;
 
@@ -2732,6 +2936,8 @@ function cwApplyColor() {
     setPlColor(colorWheelTarget.plId, hex);
   } else if (colorWheelTarget.type === 'epi') {
     setEpiColor(hex);
+  } else if (colorWheelTarget.type === 'asgn') {
+    setAsgnColor(hex);
   }
   closeColorWheelPopup();
 }
@@ -2846,6 +3052,14 @@ function onEpiHexInput() {
     document.getElementById('epiColorPreview').style.background = val;
   }
 }
+function onAsgnHexInput() {
+  const val = document.getElementById('asgnColorHex').value;
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    asgnPickerColor = val;
+    document.getElementById('asgnColorPreview').style.background = val;
+  }
+}
+
 function getEpiSelectedColor() {
   const v = document.getElementById('epiHexInput').value;
   return /^#[0-9a-fA-F]{6}$/.test(v) ? v : '#4f8ef7';
@@ -3539,6 +3753,8 @@ document.addEventListener('keydown', e => {
     closeEditProgItemModal();
     closeColorWheelPopup();
     closeSettings();
+    closeAsgnModal();
+    closeDayNoteModal();
   }
   if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display !== 'none') {
     if (document.activeElement !== document.getElementById('fName')) return;
@@ -3966,6 +4182,8 @@ function toggleSettings() {
   const isOpen = panel.classList.contains('open');
   if (isOpen) {
     closeSettings();
+    closeAsgnModal();
+    closeDayNoteModal();
   } else {
     panel.classList.add('open');
     btn.classList.add('open');
@@ -4037,6 +4255,384 @@ async function sendTestEmail() {
   }
 }
 
+
+// ============================================================
+// SEMESTER PLANNER
+// ============================================================
+let semesterAssignments = [];
+try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
+
+let plannerViewMode = 'month'; // 'month' | 'semester'
+let plannerMonth = new Date().getMonth();
+let plannerYear  = new Date().getFullYear();
+
+function saveSemester() {
+  localStorage.setItem('wtm_semester', JSON.stringify(semesterAssignments));
+}
+
+function getSemesterDates() {
+  const start = localStorage.getItem('wtm_sem_start') || '';
+  const end   = localStorage.getItem('wtm_sem_end')   || '';
+  return { start, end };
+}
+
+function setSemesterDates(start, end) {
+  localStorage.setItem('wtm_sem_start', start);
+  localStorage.setItem('wtm_sem_end', end);
+}
+
+// ── DATE HELPERS ─────────────────────────────────────────────
+function addDays(dateStr, n) {
+  const d = new Date(dateStr + 'T12:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+function daysBetween(a, b) {
+  const da = new Date(a + 'T12:00:00'), db = new Date(b + 'T12:00:00');
+  return Math.round((db - da) / 86400000);
+}
+function getDaysInMonth(year, month) {
+  return new Date(year, month + 1, 0).getDate();
+}
+function isoDate(year, month, day) {
+  return `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+function isWeekend(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00').getDay();
+  return d === 0 || d === 6;
+}
+
+// ── BUILD DATE RANGE FOR CURRENT VIEW ───────────────────────
+function getPlannerDateRange() {
+  if (plannerViewMode === 'month') {
+    const daysInMonth = getDaysInMonth(plannerYear, plannerMonth);
+    const dates = [];
+    for (let d = 1; d <= daysInMonth; d++) dates.push(isoDate(plannerYear, plannerMonth, d));
+    return dates;
+  } else {
+    const { start, end } = getSemesterDates();
+    if (!start || !end) return [];
+    const dates = [];
+    let cur = start;
+    while (cur <= end) { dates.push(cur); cur = addDays(cur, 1); }
+    return dates;
+  }
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderSemesterPlanner(content) {
+  const { start: semStart, end: semEnd } = getSemesterDates();
+  const todayStr = getTodayDate();
+  const dates = getPlannerDateRange();
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  // Toolbar
+  let toolbar = `
+  <div class="planner-toolbar">
+    ${plannerViewMode === 'month' ? `
+      <button class="planner-nav-btn" onclick="plannerNav(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+      <span class="planner-month-label">${monthNames[plannerMonth]} ${plannerYear}</span>
+      <button class="planner-nav-btn" onclick="plannerNav(1)"><i class="fa-solid fa-chevron-right"></i></button>
+      <button class="planner-nav-btn" title="Jump to today" onclick="plannerGoToday()" style="font-size:10px;font-weight:700;color:var(--accent)">Today</button>
+    ` : `<span class="planner-month-label" style="font-size:14px">Full Semester View</span>`}
+    <div class="planner-view-toggle">
+      <button class="planner-view-btn ${plannerViewMode==='month'?'active':''}" onclick="setPlannerView('month')">Month</button>
+      <button class="planner-view-btn ${plannerViewMode==='semester'?'active':''}" onclick="setPlannerView('semester')">Semester</button>
+    </div>
+    <button class="planner-add-btn" onclick="openAddAssignmentModal()"><i class="fa-solid fa-plus"></i> Add Assignment</button>
+  </div>`;
+
+  // Semester dates settings bar
+  let settingsBar = `
+  <div class="semester-settings-bar">
+    <label>Semester Start</label>
+    <input class="semester-date-input" type="date" value="${semStart}" onchange="updateSemesterDate('start',this.value)">
+    <label style="margin-left:8px">Semester End</label>
+    <input class="semester-date-input" type="date" value="${semEnd}" onchange="updateSemesterDate('end',this.value)">
+    <span style="font-size:11px;color:var(--text3);margin-left:auto">
+      ${semStart && semEnd ? `${daysBetween(semStart,semEnd)} days · ${semesterAssignments.length} assignments` : 'Set dates to enable semester view'}
+    </span>
+  </div>`;
+
+  if (!dates.length) {
+    content.innerHTML = toolbar + settingsBar + `<div class="empty-state"><i class="fa-solid fa-calendar-xmark" style="font-size:28px"></i><span>Set semester start and end dates above, then switch to Semester view.</span></div>`;
+    return;
+  }
+
+  // Build month group headers for semester view
+  let monthGroups = [];
+  if (plannerViewMode === 'semester') {
+    let curMonth = -1, curCount = 0;
+    dates.forEach((d, i) => {
+      const m = new Date(d + 'T12:00:00').getMonth();
+      if (m !== curMonth) {
+        if (curMonth >= 0) monthGroups.push({ month: curMonth, start: i - curCount, count: curCount });
+        curMonth = m; curCount = 1;
+      } else curCount++;
+    });
+    if (curCount > 0) monthGroups.push({ month: new Date(dates[dates.length-1]+'T12:00:00').getMonth(), start: dates.length - curCount, count: curCount });
+  }
+
+  const dayW = plannerViewMode === 'semester' ? 22 : 28;
+
+  // Header row
+  let headerCols = `<th class="gantt-header-label">Assignment</th>`;
+  dates.forEach(d => {
+    const isToday = d === todayStr;
+    const weekend = isWeekend(d);
+    const dayNum = parseInt(d.split('-')[2]);
+    headerCols += `<th class="gantt-day-header ${isToday?'today-col':''} ${weekend?'weekend':''}" style="width:${dayW}px;min-width:${dayW}px" title="${d}">${dayNum}</th>`;
+  });
+
+  // Month span headers (semester view only)
+  let monthHeaderRow = '';
+  if (plannerViewMode === 'semester' && monthGroups.length > 0) {
+    monthHeaderRow = '<tr class="gantt-header-row">';
+    monthHeaderRow += `<th class="gantt-header-label gantt-month-header"></th>`;
+    monthGroups.forEach(g => {
+      monthHeaderRow += `<th class="gantt-month-header" colspan="${g.count}" style="text-align:left;padding:4px 6px !important">${monthNames[g.month]}</th>`;
+    });
+    monthHeaderRow += '</tr>';
+  }
+
+  // Assignment rows
+  let assignmentRows = '';
+  const sorted = [...semesterAssignments].sort((a,b) => (a.dueDate||'').localeCompare(b.dueDate||''));
+
+  sorted.forEach(asgn => {
+    const color = asgn.color || '#4f8ef7';
+    const darkColor = color + 'cc';
+    let cells = `<td class="gantt-label-cell">
+      <div class="gantt-label-inner">
+        <div class="gantt-color-dot" style="background:${color}"></div>
+        <div style="flex:1;overflow:hidden">
+          <div class="gantt-assignment-name">${escHtml(asgn.name)}</div>
+          <div class="gantt-course-name">${escHtml(asgn.course||'')}</div>
+        </div>
+        <div class="gantt-label-actions">
+          <button class="task-act-btn" onclick="openEditAssignmentModal('${asgn.id}',event)" title="Edit"><i class="fa-solid fa-pen" style="font-size:10px"></i></button>
+          <button class="task-act-btn del" onclick="deleteAssignment('${asgn.id}',event)" title="Delete"><i class="fa-solid fa-trash" style="font-size:10px"></i></button>
+        </div>
+      </div>
+    </td>`;
+
+    dates.forEach(d => {
+      const inRange   = asgn.startDate && asgn.dueDate && d >= asgn.startDate && d <= asgn.dueDate;
+      const isStart   = d === asgn.startDate;
+      const isEnd     = d === asgn.dueDate;
+      const isDue     = d === asgn.dueDate;
+      const isToday   = d === todayStr;
+      const weekend   = isWeekend(d);
+      const note      = (asgn.dayNotes || {})[d] || '';
+
+      if (inRange) {
+        let barClass = 'gantt-bar-cell';
+        if (isStart) barClass += ' bar-start';
+        if (isEnd)   barClass += ' bar-end';
+        if (isDue)   barClass += ' bar-due';
+        if (note)    barClass += ' has-note';
+        if (isToday) barClass += ' today-col';
+
+        const barStyle = `background:${color}`;
+        const label = isStart ? escHtml(asgn.name.slice(0,8)) : (isDue ? '📌' : (note ? '•' : ''));
+
+        cells += `<td class="${barClass} ${weekend?'weekend-col':''} ${isToday?'today-col':''}"
+          onclick="openDayNoteModal('${asgn.id}','${d}',event)"
+          onmouseenter="showGanttTooltip(event,'${escHtml(note||d)}')"
+          onmouseleave="hideGanttTooltip()"
+          title="${note || d}">
+          <div class="bar-inner" style="${barStyle}">${label}</div>
+        </td>`;
+      } else {
+        cells += `<td class="${isToday?'today-col':''} ${weekend?'weekend-col':''}"
+          style="cursor:default"></td>`;
+      }
+    });
+
+    assignmentRows += `<tr class="gantt-assignment-row">${cells}</tr>`;
+  });
+
+  if (!sorted.length) {
+    assignmentRows = `<tr><td colspan="${dates.length+1}" style="padding:40px;text-align:center;color:var(--text3)">
+      <i class="fa-solid fa-graduation-cap" style="font-size:24px;display:block;margin-bottom:10px"></i>
+      No assignments yet. Click <strong>+ Add Assignment</strong> to get started.
+    </td></tr>`;
+  }
+
+  // Legend
+  const courses = [...new Set(semesterAssignments.map(a => a.course).filter(Boolean))];
+  let legend = courses.length ? `<div class="planner-legend">` + courses.map(c => {
+    const color = semesterAssignments.find(a => a.course === c)?.color || '#4f8ef7';
+    return `<div class="legend-item"><div class="legend-dot" style="background:${color}"></div>${escHtml(c)}</div>`;
+  }).join('') + `</div>` : '';
+
+  content.innerHTML = toolbar + settingsBar + `
+  <div class="gantt-wrap">
+    <table class="gantt-grid">
+      <thead>
+        ${monthHeaderRow}
+        <tr class="gantt-header-row">${headerCols}</tr>
+      </thead>
+      <tbody>${assignmentRows}</tbody>
+    </table>
+  </div>
+  ${legend}
+  <div id="ganttTooltip" class="gantt-note-tooltip" style="display:none"></div>`;
+}
+
+function plannerNav(dir) {
+  plannerMonth += dir;
+  if (plannerMonth > 11) { plannerMonth = 0; plannerYear++; }
+  if (plannerMonth < 0)  { plannerMonth = 11; plannerYear--; }
+  renderContent();
+}
+function plannerGoToday() {
+  const now = new Date();
+  plannerMonth = now.getMonth();
+  plannerYear  = now.getFullYear();
+  renderContent();
+}
+function setPlannerView(mode) {
+  plannerViewMode = mode;
+  renderContent();
+}
+function updateSemesterDate(type, val) {
+  const { start, end } = getSemesterDates();
+  setSemesterDates(type==='start'?val:start, type==='end'?val:end);
+  renderContent();
+}
+
+// ── TOOLTIP ──────────────────────────────────────────────────
+function showGanttTooltip(e, text) {
+  if (!text || text.match(/^\d{4}-\d{2}-\d{2}$/)) return;
+  const tip = document.getElementById('ganttTooltip');
+  if (!tip) return;
+  tip.textContent = text;
+  tip.style.display = 'block';
+  tip.style.left = (e.clientX + 12) + 'px';
+  tip.style.top  = (e.clientY + 12) + 'px';
+}
+function hideGanttTooltip() {
+  const tip = document.getElementById('ganttTooltip');
+  if (tip) tip.style.display = 'none';
+}
+
+// ── DAY NOTE MODAL ────────────────────────────────────────────
+let dayNoteTarget = null;
+function openDayNoteModal(asgnId, dateStr, e) {
+  if (e) e.stopPropagation();
+  const asgn = semesterAssignments.find(a => a.id === asgnId);
+  if (!asgn) return;
+  dayNoteTarget = { asgnId, dateStr };
+  document.getElementById('dayNoteDate').textContent = dateStr;
+  document.getElementById('dayNoteAssignment').textContent = asgn.name;
+  document.getElementById('dayNoteInput').value = (asgn.dayNotes || {})[dateStr] || '';
+  document.getElementById('dayNoteModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('dayNoteInput').focus(), 50);
+}
+function closeDayNoteModal() {
+  document.getElementById('dayNoteModal').style.display = 'none';
+  dayNoteTarget = null;
+}
+function saveDayNote() {
+  if (!dayNoteTarget) return;
+  const asgn = semesterAssignments.find(a => a.id === dayNoteTarget.asgnId);
+  if (!asgn) return;
+  if (!asgn.dayNotes) asgn.dayNotes = {};
+  const val = document.getElementById('dayNoteInput').value.trim();
+  if (val) asgn.dayNotes[dayNoteTarget.dateStr] = val;
+  else delete asgn.dayNotes[dayNoteTarget.dateStr];
+  saveSemester();
+  closeDayNoteModal();
+  renderContent();
+  showToast('Day note saved ✓');
+}
+function clearDayNote() {
+  if (!dayNoteTarget) return;
+  const asgn = semesterAssignments.find(a => a.id === dayNoteTarget.asgnId);
+  if (asgn && asgn.dayNotes) delete asgn.dayNotes[dayNoteTarget.dateStr];
+  saveSemester();
+  closeDayNoteModal();
+  renderContent();
+}
+
+// ── ADD / EDIT ASSIGNMENT MODAL ───────────────────────────────
+let editAssignmentId = null;
+let asgnPickerColor = '#4f8ef7';
+
+function openAddAssignmentModal() {
+  editAssignmentId = null;
+  document.getElementById('asgnModalTitle').textContent = 'Add Assignment';
+  document.getElementById('asgnName').value = '';
+  document.getElementById('asgnCourse').value = '';
+  document.getElementById('asgnStart').value = getTodayDate();
+  document.getElementById('asgnDue').value = '';
+  document.getElementById('asgnDesc').value = '';
+  setAsgnColor('#4f8ef7');
+  document.getElementById('asgnModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('asgnName').focus(), 50);
+}
+function openEditAssignmentModal(id, e) {
+  if (e) e.stopPropagation();
+  const asgn = semesterAssignments.find(a => a.id === id);
+  if (!asgn) return;
+  editAssignmentId = id;
+  document.getElementById('asgnModalTitle').textContent = 'Edit Assignment';
+  document.getElementById('asgnName').value = asgn.name;
+  document.getElementById('asgnCourse').value = asgn.course || '';
+  document.getElementById('asgnStart').value = asgn.startDate || '';
+  document.getElementById('asgnDue').value = asgn.dueDate || '';
+  document.getElementById('asgnDesc').value = asgn.description || '';
+  setAsgnColor(asgn.color || '#4f8ef7');
+  document.getElementById('asgnModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('asgnName').focus(), 50);
+}
+function closeAsgnModal() {
+  document.getElementById('asgnModal').style.display = 'none';
+  editAssignmentId = null;
+}
+function setAsgnColor(hex) {
+  asgnPickerColor = hex;
+  const prev = document.getElementById('asgnColorPreview');
+  const inp  = document.getElementById('asgnColorHex');
+  if (prev) prev.style.background = hex;
+  if (inp)  inp.value = hex;
+}
+function saveAssignment() {
+  const name  = document.getElementById('asgnName').value.trim();
+  const course = document.getElementById('asgnCourse').value.trim();
+  const start = document.getElementById('asgnStart').value;
+  const due   = document.getElementById('asgnDue').value;
+  const desc  = document.getElementById('asgnDesc').value.trim();
+  if (!name) { document.getElementById('asgnName').focus(); return; }
+  if (!due)  { document.getElementById('asgnDue').focus(); return; }
+  if (editAssignmentId) {
+    const asgn = semesterAssignments.find(a => a.id === editAssignmentId);
+    if (asgn) {
+      asgn.name = name; asgn.course = course; asgn.startDate = start;
+      asgn.dueDate = due; asgn.description = desc; asgn.color = asgnPickerColor;
+    }
+    showToast('Assignment updated ✓');
+  } else {
+    semesterAssignments.push({
+      id: uid(), name, course, startDate: start, dueDate: due,
+      description: desc, color: asgnPickerColor, dayNotes: {}
+    });
+    showToast('Assignment added ✓');
+  }
+  saveSemester();
+  closeAsgnModal();
+  renderContent();
+}
+function deleteAssignment(id, e) {
+  if (e) e.stopPropagation();
+  if (!confirm('Delete this assignment?')) return;
+  semesterAssignments = semesterAssignments.filter(a => a.id !== id);
+  saveSemester();
+  renderContent();
+}
+
 // ============================================================
 // FRIDAY AUTO-BACKUP
 // ============================================================
@@ -4070,6 +4666,7 @@ function initApp() {
   // Load local data first so UI is instant
   try { tasks = JSON.parse(localStorage.getItem('wtm_tasks') || '[]'); } catch { tasks = []; }
   try { archive = JSON.parse(localStorage.getItem('wtm_archive') || '[]'); } catch { archive = []; }
+  try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
   restoreTimers();
   checkCarryover();
   buildSidebar();
@@ -4211,6 +4808,74 @@ if (isLoggedIn()) {
     <div class="cw-footer">
       <button class="btn-secondary" onclick="closeColorWheelPopup()">Cancel</button>
       <button class="btn-primary" onclick="cwApplyColor()">Use This Colour</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD/EDIT ASSIGNMENT MODAL -->
+<div class="modal-overlay" id="asgnModal" style="display:none" onclick="if(event.target===this)closeAsgnModal()">
+  <div class="modal" style="width:500px">
+    <div class="modal-title" id="asgnModalTitle"><i class="fa-solid fa-graduation-cap" style="color:var(--uni)"></i> Add Assignment</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Assignment Name</label>
+        <input class="form-input" id="asgnName" type="text" placeholder="e.g. Research Essay" onkeydown="if(event.key==='Enter')saveAssignment()">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Course / Subject</label>
+        <input class="form-input" id="asgnCourse" type="text" placeholder="e.g. COMP2812">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Start Date</label>
+        <input class="form-input" id="asgnStart" type="date">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Due Date</label>
+        <input class="form-input" id="asgnDue" type="date">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description (optional)</label>
+      <input class="form-input" id="asgnDesc" type="text" placeholder="Brief description…">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Colour</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+        <div id="asgnColorPreview" style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border2);background:#4f8ef7;cursor:pointer;transition:transform 0.1s;flex-shrink:0"
+          onclick="openColorWheelPopup('asgn',null)"
+          onmouseover="this.style.transform='scale(1.08)'"
+          onmouseout="this.style.transform='scale(1)'"></div>
+        <input id="asgnColorHex" class="color-hex-input" type="text" value="#4f8ef7" maxlength="7"
+          placeholder="#rrggbb" oninput="onAsgnHexInput()" style="width:110px">
+        <span style="font-size:11px;color:var(--text3)">Click swatch to open colour picker</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeAsgnModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveAssignment()">Save Assignment</button>
+    </div>
+  </div>
+</div>
+
+<!-- DAY NOTE MODAL -->
+<div class="modal-overlay" id="dayNoteModal" style="display:none" onclick="if(event.target===this)closeDayNoteModal()">
+  <div class="modal" style="width:420px">
+    <div class="modal-title"><i class="fa-solid fa-pencil" style="color:var(--uni)"></i> Day Note</div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:14px;font-family:'JetBrains Mono',monospace">
+      <span id="dayNoteDate"></span> &nbsp;·&nbsp; <span id="dayNoteAssignment" style="color:var(--text2)"></span>
+    </div>
+    <div class="form-group">
+      <label class="form-label">What will you work on?</label>
+      <input class="form-input" id="dayNoteInput" type="text"
+        placeholder="e.g. Research, Write intro, Review…"
+        onkeydown="if(event.key==='Enter')saveDayNote()">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="clearDayNote()" style="color:var(--high)">Clear Note</button>
+      <button class="btn-secondary" onclick="closeDayNoteModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveDayNote()">Save Note</button>
     </div>
   </div>
 </div>
