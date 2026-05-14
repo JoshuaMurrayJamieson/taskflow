@@ -1578,6 +1578,56 @@
     .settings-panel { left: 0; width: 280px; }
   }
 
+
+  /* ── TASK TIMER ── */
+  .timer-btn {
+    background: none;
+    border: 1.5px solid var(--border2);
+    border-radius: 6px;
+    padding: 3px 8px;
+    cursor: pointer;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    display: flex; align-items: center; gap: 5px;
+    transition: all var(--transition);
+    white-space: nowrap;
+    line-height: 1.6;
+    flex-shrink: 0;
+  }
+  .timer-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .timer-btn.running {
+    border-color: var(--low);
+    color: var(--low);
+    background: var(--low-bg);
+    animation: timerPulse 1.4s ease-in-out infinite;
+  }
+  .timer-btn.running i { animation: spin 2s linear infinite; }
+  @keyframes timerPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(77,207,142,0.4); }
+    50%       { box-shadow: 0 0 0 4px rgba(77,207,142,0); }
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .timer-btn.has-time {
+    border-color: var(--border2);
+    color: var(--text2);
+  }
+  .timer-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    padding: 2px 6px;
+    background: var(--bg3);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .timer-display.running { color: var(--low); border-color: rgba(77,207,142,0.3); background: var(--low-bg); }
+
 </style>
 </head>
 <body>
@@ -1742,15 +1792,9 @@
         </select>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Time Estimate</label>
-        <input class="form-input" id="fTime" type="text" placeholder="e.g. 1.5h, 45m">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Due Date (optional)</label>
-        <input class="form-input" id="fDue" type="date">
-      </div>
+    <div class="form-group">
+      <label class="form-label">Due Date (optional)</label>
+      <input class="form-input" id="fDue" type="date">
     </div>
     <div class="form-group">
       <label class="form-label">Flag Note (optional)</label>
@@ -2086,10 +2130,10 @@ function renderContent() {
 
   dayTasks.sort((a,b) => PRIORITY_ORDER.indexOf(a.priority) - PRIORITY_ORDER.indexOf(b.priority));
 
-  // Time summary over active tab
+  // Time summary over active tab — use actual timer if available
   let totalMins = 0, doneMins = 0;
   dayTasks.forEach(t => {
-    const m = parseMinutes(t.timeEstimate);
+    const m = t.timerMs ? Math.round(t.timerMs/60000) : parseMinutes(t.timeEstimate);
     totalMins += m;
     if (t.completed) doneMins += m;
   });
@@ -2384,7 +2428,14 @@ function renderTask(task) {
         ${task.notes ? '<span title="Has notes" style="font-size:12px;color:var(--accent)"><i class="fa-solid fa-note-sticky"></i></span>' : ''}
         ${task.flagNote ? '<span class="flag-icon">🚩</span>' : ''}
         ${dueBadge}
-        ${task.timeEstimate ? `<span class="time-badge">${escHtml(task.timeEstimate)}</span>` : ''}
+        <button class="timer-btn ${activeTimerId===task.id?'running':(task.timerMs>0?'has-time':'')}"
+          id="timerbtn_${task.id}"
+          onclick="toggleTimer('${task.id}',event)"
+          title="${activeTimerId===task.id?'Stop timer':(task.timerMs>0?'Resume timer':'Start timer')}">
+          <i class="fa-${activeTimerId===task.id?'solid':'regular'} fa-stopwatch"></i>
+          ${activeTimerId===task.id ? fmtTimerMs(getTaskElapsed(task.id)) : (task.timerMs>0 ? fmtTimerMs(task.timerMs) : 'Start')}
+        </button>
+        ${task.timerMs>0 ? `<button class="task-act-btn" title="Reset timer" onclick="resetTimer('${task.id}',event)" style="font-size:10px;color:var(--text3)"><i class="fa-solid fa-rotate-left"></i></button>` : ''}
         <span class="priority-badge ${task.priority}">${task.priority}</span>
         ${task.frequency === 'Recurring' ? '<span class="recurring-badge"><i class="fa-solid fa-rotate"></i></span>' : ''}
         <div class="task-actions">
@@ -3117,7 +3168,6 @@ function openAddModal() {
   if (currentDay && currentDay !== '_ongoing') document.getElementById('fDay').value = currentDay;
   document.getElementById('fPriority').value = 'Medium';
   document.getElementById('fFreq').value = 'Recurring';
-  document.getElementById('fTime').value = '';
   document.getElementById('fDue').value = '';
   document.getElementById('fFlag').value = '';
   document.getElementById('modalOverlay').style.display = 'flex';
@@ -3137,7 +3187,6 @@ function openEditModal(id, e) {
   document.getElementById('fDay').value = task.day;
   document.getElementById('fPriority').value = task.priority;
   document.getElementById('fFreq').value = task.frequency;
-  document.getElementById('fTime').value = task.timeEstimate || '';
   document.getElementById('fDue').value = task.dueDate || '';
   document.getElementById('fFlag').value = task.flagNote || '';
   document.getElementById('modalOverlay').style.display = 'flex';
@@ -3158,7 +3207,6 @@ function saveTask() {
   const day = document.getElementById('fDay').value;
   const priority = document.getElementById('fPriority').value;
   const freq = document.getElementById('fFreq').value;
-  const time = document.getElementById('fTime').value.trim();
   const due = document.getElementById('fDue').value;
   const flagNote = document.getElementById('fFlag').value.trim() || null;
 
@@ -3167,7 +3215,7 @@ function saveTask() {
     if (task) {
       task.name = name; task.category = cat; task.day = day;
       task.priority = priority; task.frequency = freq;
-      task.timeEstimate = time; task.dueDate = due || null;
+      task.dueDate = due || null;
       task.flagNote = flagNote;
     }
     showToast('Task updated ✓');
@@ -3175,7 +3223,7 @@ function saveTask() {
     tasks.push({
       id: uid(), code: generateCode(cat),
       name, category: cat, day, priority,
-      frequency: freq, timeEstimate: time,
+      frequency: freq, timeEstimate: null,
       dueDate: due || null, flagNote,
       completed: false, subtasks: [], _expanded: false
     });
@@ -3543,7 +3591,7 @@ function renderArchive(content) {
     return true;
   });
 
-  const totalMins = archive.reduce((a, r) => a + parseMinutes(r.timeEstimate), 0);
+  const totalMins = archive.reduce((a, r) => a + (r.timerMs ? Math.round(r.timerMs/60000) : parseMinutes(r.timeEstimate||'')), 0);
 
   let html = `
   <div class="archive-stats">
@@ -3593,7 +3641,7 @@ function renderArchive(content) {
                 ${s.flagNote ? `<span style="color:var(--flag);font-size:10px">🚩 ${escHtml(s.flagNote)}</span>` : ''}
               </div>`).join('')}
           ` : ''}
-          ${r.timeEstimate ? `<div style="font-size:11px;color:var(--text3);margin-top:8px;font-family:'JetBrains Mono',monospace">Time estimate: ${r.timeEstimate}</div>` : ''}
+          ${(r.timerMs>0||r.timeEstimate) ? `<div style="font-size:11px;color:var(--low);margin-top:8px;font-family:'JetBrains Mono',monospace"><i class='fa-solid fa-stopwatch' style='font-size:9px'></i> Time taken: ${r.timerMs>0?fmtTimerMs(r.timerMs):r.timeEstimate}</div>` : ''}
         </div>
       </div>`;
     });
@@ -3626,6 +3674,130 @@ function deleteArchiveRecord(archivedId, e) {
   showToast('Record removed');
 }
 
+
+
+// ============================================================
+// TASK TIMER SYSTEM
+// ============================================================
+let activeTimerId = null;      // task id of running timer
+let timerStartTime = null;     // Date.now() when started
+let timerInterval = null;      // setInterval handle
+let timerPausedMs = {};        // taskId → accumulated ms
+
+function fmtTimerMs(ms) {
+  if (!ms && ms !== 0) return '0:00';
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return h + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  return m + ':' + String(s).padStart(2,'0');
+}
+
+function fmtMsToHuman(ms) {
+  if (!ms) return null;
+  const totalMin = Math.round(ms / 60000);
+  if (totalMin < 1) return '< 1m';
+  const h = Math.floor(totalMin / 60), m = totalMin % 60;
+  if (h && m) return h + 'h ' + m + 'm';
+  if (h) return h + 'h';
+  return m + 'm';
+}
+
+function getTaskElapsed(taskId) {
+  let ms = timerPausedMs[taskId] || 0;
+  if (activeTimerId === taskId && timerStartTime) {
+    ms += Date.now() - timerStartTime;
+  }
+  return ms;
+}
+
+function toggleTimer(taskId, e) {
+  if (e) e.stopPropagation();
+
+  if (activeTimerId === taskId) {
+    // Stop this timer
+    const elapsed = Date.now() - timerStartTime;
+    timerPausedMs[taskId] = (timerPausedMs[taskId] || 0) + elapsed;
+    activeTimerId = null;
+    timerStartTime = null;
+    clearInterval(timerInterval);
+    timerInterval = null;
+    // Save accumulated time to task
+    const task = tasks.find(t => t.id === taskId);
+    if (task) {
+      task.timerMs = timerPausedMs[taskId];
+      task.timeEstimate = fmtMsToHuman(timerPausedMs[taskId]);
+      saveData();
+    }
+    updateTimerDisplay(taskId);
+    buildSidebar();
+  } else {
+    // Pause any currently running timer
+    if (activeTimerId) {
+      const prevId = activeTimerId;
+      const elapsed = Date.now() - timerStartTime;
+      timerPausedMs[prevId] = (timerPausedMs[prevId] || 0) + elapsed;
+      const prevTask = tasks.find(t => t.id === prevId);
+      if (prevTask) {
+        prevTask.timerMs = timerPausedMs[prevId];
+        prevTask.timeEstimate = fmtMsToHuman(timerPausedMs[prevId]);
+      }
+      clearInterval(timerInterval);
+      updateTimerDisplay(prevId);
+    }
+    // Start this timer
+    const task = tasks.find(t => t.id === taskId);
+    if (!task) return;
+    // Restore any previously accumulated time
+    if (task.timerMs && !timerPausedMs[taskId]) {
+      timerPausedMs[taskId] = task.timerMs;
+    }
+    activeTimerId = taskId;
+    timerStartTime = Date.now();
+    timerInterval = setInterval(() => updateTimerDisplay(taskId), 1000);
+    updateTimerDisplay(taskId);
+    saveData();
+  }
+}
+
+function resetTimer(taskId, e) {
+  if (e) e.stopPropagation();
+  if (!confirm('Reset timer for this task?')) return;
+  if (activeTimerId === taskId) {
+    clearInterval(timerInterval);
+    timerInterval = null;
+    activeTimerId = null;
+    timerStartTime = null;
+  }
+  timerPausedMs[taskId] = 0;
+  const task = tasks.find(t => t.id === taskId);
+  if (task) { task.timerMs = 0; task.timeEstimate = null; saveData(); }
+  updateTimerDisplay(taskId);
+}
+
+function updateTimerDisplay(taskId) {
+  const ms = getTaskElapsed(taskId);
+  const isRunning = activeTimerId === taskId;
+  const btn = document.getElementById('timerbtn_' + taskId);
+  const disp = document.getElementById('timerdisp_' + taskId);
+  if (btn) {
+    btn.className = 'timer-btn' + (isRunning ? ' running' : (ms > 0 ? ' has-time' : ''));
+    btn.innerHTML = isRunning
+      ? '<i class="fa-solid fa-stopwatch"></i> ' + fmtTimerMs(ms)
+      : (ms > 0 ? '<i class="fa-solid fa-stopwatch"></i> ' + fmtTimerMs(ms) : '<i class="fa-regular fa-stopwatch"></i> Start');
+    btn.title = isRunning ? 'Click to stop timer' : (ms > 0 ? 'Click to resume timer' : 'Click to start timer');
+  }
+}
+
+// Restore timer state on page load
+function restoreTimers() {
+  tasks.forEach(t => {
+    if (t.timerMs && t.timerMs > 0) {
+      timerPausedMs[t.id] = t.timerMs;
+    }
+  });
+}
 
 // ============================================================
 // SETTINGS PANEL
@@ -3678,7 +3850,9 @@ async function sendTestEmail() {
     archive,
     weeklyArchive: thisWeekArchive,
     generatedAt: new Date().toISOString(),
-    username: getUserId()
+    username: getUserId(),
+    weekStart: new Date(Date.now() - 7*24*60*60*1000).toISOString().split('T')[0],
+    weekEnd: getTodayDate()
   };
 
   try {
@@ -3738,6 +3912,7 @@ function initApp() {
   // Load local data first so UI is instant
   try { tasks = JSON.parse(localStorage.getItem('wtm_tasks') || '[]'); } catch { tasks = []; }
   try { archive = JSON.parse(localStorage.getItem('wtm_archive') || '[]'); } catch { archive = []; }
+  restoreTimers();
   checkCarryover();
   buildSidebar();
   renderContent();
