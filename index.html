@@ -1483,16 +1483,25 @@
     padding: 40px 20px; font-size: 13px;
   }
   .archive-stats {
-    display: flex; gap: 16px; flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 12px;
     margin-bottom: 16px;
     background: var(--bg2);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    padding: 12px 16px;
+    padding: 16px 18px;
     font-size: 12px; color: var(--text2);
   }
-  .archive-stat { display: flex; flex-direction: column; gap: 2px; }
-  .archive-stat-val { font-size: 18px; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; }
+  .archive-stat {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 8px 10px;
+    background: var(--bg3);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+  }
+  .archive-stat-val { font-size: 22px; font-weight: 700; color: var(--text); font-family: 'JetBrains Mono', monospace; line-height: 1.2; }
+  .archive-stat-label { font-size: 11px; color: var(--text3); font-weight: 600; letter-spacing: 0.3px; line-height: 1.5; }
 
 
   /* ── SETTINGS PANEL ── */
@@ -3665,10 +3674,10 @@ function renderArchive(content) {
 
   let html = `
   <div class="archive-stats">
-    <div class="archive-stat"><span class="archive-stat-val">${archive.length}</span><span>Total completed</span></div>
-    <div class="archive-stat"><span class="archive-stat-val">${archive.filter(r=>r.category==='Work').length}</span><span>Work tasks</span></div>
-    <div class="archive-stat"><span class="archive-stat-val">${archive.filter(r=>r.category==='University').length}</span><span>Uni tasks</span></div>
-    <div class="archive-stat"><span class="archive-stat-val">${fmtMins(totalMins)}</span><span>Total time logged</span></div>
+    <div class="archive-stat"><span class="archive-stat-val">${archive.length}</span><span class="archive-stat-label">Total Completed</span></div>
+    <div class="archive-stat"><span class="archive-stat-val" style="color:var(--work)">${archive.filter(r=>r.category==='Work').length}</span><span class="archive-stat-label">Work Tasks</span></div>
+    <div class="archive-stat"><span class="archive-stat-val" style="color:var(--uni)">${archive.filter(r=>r.category==='University').length}</span><span class="archive-stat-label">Uni Tasks</span></div>
+    <div class="archive-stat"><span class="archive-stat-val" style="color:var(--med)">${fmtMins(totalMins)}</span><span class="archive-stat-label">Time Logged</span></div>
   </div>
   <div class="archive-filters">
     <button class="archive-filter-btn ${archiveFilter==='All'?'active':''}" onclick="setArchiveFilter('All')">All</button>
