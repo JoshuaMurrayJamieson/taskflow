@@ -2266,9 +2266,9 @@
       <i class="fa-solid fa-circle-half-stroke" style="color:var(--text2)"></i> Toggle Theme
     </button>
     <div class="settings-divider"></div>
-    <div style="padding:6px 12px 2px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)">University Semesters</div>
+    <div style="padding:6px 12px 2px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)">University Terms</div>
     <button class="settings-item" onclick="openSemesterPresetsModal()">
-      <i class="fa-solid fa-calendar-days" style="color:var(--uni)"></i> Semester Dates
+      <i class="fa-solid fa-calendar-days" style="color:var(--uni)"></i> Term Dates
     </button>
     <div class="settings-divider"></div>
     <button class="settings-item danger" onclick="logout()">
@@ -2664,6 +2664,14 @@ function updateTopbar() {
   } else if (currentDay === '_carryover') {
     t.textContent = 'Carried Over';
     s.textContent = 'Missed tasks — now High Priority';
+  } else if (currentDay === '_archive') {
+    t.textContent = 'Task Archive';
+    s.textContent = 'Your full task history';
+    document.title = 'TaskFlow — Task Archive';
+  } else if (currentDay === '_semester') {
+    t.textContent = 'University';
+    s.textContent = 'Term planner & assignments';
+    document.title = 'TaskFlow — University';
   } else {
     t.textContent = currentDay;
     s.textContent = currentDay === today ? '📍 Today' : '';
@@ -4658,6 +4666,7 @@ function getPlannerDateRange() {
 
 // ── RENDER ────────────────────────────────────────────────────
 function renderSemesterPlanner(content) {
+  autoDetectCurrentTerm();
   const { start: semStart, end: semEnd } = getSemesterDates();
   const todayStr = getTodayDate();
   const dates = getPlannerDateRange();
@@ -4689,7 +4698,7 @@ function renderSemesterPlanner(content) {
     <label style="margin-left:8px">Semester End</label>
     <input class="semester-date-input" type="date" value="${semEnd}" onchange="updateSemesterDate('end',this.value)">
     <span style="font-size:11px;color:var(--text3);margin-left:auto">
-      ${semStart && semEnd ? `${daysBetween(semStart,semEnd)} days · ${semesterCourses.length} courses · ${semesterAssignments.length} assignments` : 'Set dates to enable semester view'}
+      ${semStart && semEnd ? `${daysBetween(semStart,semEnd)} days · ${semesterCourses.length} courses · ${semesterAssignments.length} assignments` : 'Set term dates in Settings → Term Dates'}
     </span>
   </div>`;
 
@@ -5470,7 +5479,7 @@ function goToSearchResult(type, id) {
 function openSemesterPresetsModal() {
   closeSettings();
   // Load saved presets
-  const presets = getSemesterPresets();
+  const presets = getTermPresets();
   ['1','2','3','4'].forEach(n => {
     const inp = document.getElementById('semPresetStart' + n);
     const inpE = document.getElementById('semPresetEnd' + n);
@@ -5484,11 +5493,11 @@ function closeSemPresetsModal() {
   document.getElementById('semPresetsModal').style.display = 'none';
 }
 
-function getSemesterPresets() {
+function getTermPresets() {
   try { return JSON.parse(localStorage.getItem('wtm_sem_presets') || '{}'); } catch { return {}; }
 }
 
-function saveSemesterPresets() {
+function saveTermPresets() {
   const presets = {};
   ['1','2','3','4'].forEach(n => {
     presets['sem' + n + '_start'] = document.getElementById('semPresetStart' + n).value;
@@ -5500,14 +5509,33 @@ function saveSemesterPresets() {
 }
 
 function applySemesterPreset(n) {
-  const presets = getSemesterPresets();
+  const presets = getTermPresets();
   const start = presets['sem' + n + '_start'];
   const end   = presets['sem' + n + '_end'];
-  if (!start || !end) { showToast('No dates set for Semester ' + n); return; }
+  if (!start || !end) { showToast('No dates set for Term ' + n); return; }
   setSemesterDates(start, end);
   closeSemPresetsModal();
   if (currentDay === '_semester') renderContent();
-  showToast('Semester ' + n + ' dates applied ✓');
+  showToast('Term ' + n + ' dates applied ✓');
+}
+
+
+function autoDetectCurrentTerm() {
+  const today = getTodayDate();
+  const presets = getTermPresets();
+  for (let n = 1; n <= 4; n++) {
+    const start = presets['sem' + n + '_start'];
+    const end   = presets['sem' + n + '_end'];
+    if (start && end && today >= start && today <= end) {
+      // Today is within this term — apply if not already set
+      const { start: curStart, end: curEnd } = getSemesterDates();
+      if (curStart !== start || curEnd !== end) {
+        setSemesterDates(start, end);
+        showToast('Term ' + n + ' auto-detected ✓');
+      }
+      return;
+    }
+  }
 }
 
 // ============================================================
@@ -5810,31 +5838,31 @@ if (isLoggedIn()) {
 <!-- SEMESTER PRESETS MODAL -->
 <div class="modal-overlay" id="semPresetsModal" style="display:none" onclick="if(event.target===this)closeSemPresetsModal()">
   <div class="modal" style="width:520px">
-    <div class="modal-title"><i class="fa-solid fa-calendar-days" style="color:var(--uni)"></i> University Semester Dates</div>
-    <p style="font-size:13px;color:var(--text3);margin-bottom:20px;line-height:1.6">Set your semester dates once and apply them instantly. Click <strong style="color:var(--text2)">Apply</strong> to load those dates into the University view.</p>
+    <div class="modal-title"><i class="fa-solid fa-calendar-days" style="color:var(--uni)"></i> University Term Dates</div>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:20px;line-height:1.6">Set your term dates once and apply them instantly. Click <strong style="color:var(--text2)">Apply</strong> to load those dates into the University view.</p>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
-      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Semester 1</span>
+      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Term 1</span>
       <input class="semester-date-input" id="semPresetStart1" type="date">
       <span style="color:var(--text3);font-size:12px">→</span>
       <input class="semester-date-input" id="semPresetEnd1" type="date">
       <button class="subtask-add-btn" onclick="applySemesterPreset('1')" style="white-space:nowrap;font-size:12px">Apply</button>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
-      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Semester 2</span>
+      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Term 2</span>
       <input class="semester-date-input" id="semPresetStart2" type="date">
       <span style="color:var(--text3);font-size:12px">→</span>
       <input class="semester-date-input" id="semPresetEnd2" type="date">
       <button class="subtask-add-btn" onclick="applySemesterPreset('2')" style="white-space:nowrap;font-size:12px">Apply</button>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
-      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Semester 3</span>
+      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Term 3</span>
       <input class="semester-date-input" id="semPresetStart3" type="date">
       <span style="color:var(--text3);font-size:12px">→</span>
       <input class="semester-date-input" id="semPresetEnd3" type="date">
       <button class="subtask-add-btn" onclick="applySemesterPreset('3')" style="white-space:nowrap;font-size:12px">Apply</button>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
-      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Semester 4</span>
+      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Term 4</span>
       <input class="semester-date-input" id="semPresetStart4" type="date">
       <span style="color:var(--text3);font-size:12px">→</span>
       <input class="semester-date-input" id="semPresetEnd4" type="date">
@@ -5842,7 +5870,7 @@ if (isLoggedIn()) {
     </div>
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeSemPresetsModal()">Cancel</button>
-      <button class="btn-primary" onclick="saveSemesterPresets()"><i class="fa-solid fa-floppy-disk"></i> Save All</button>
+      <button class="btn-primary" onclick="saveTermPresets()"><i class="fa-solid fa-floppy-disk"></i> Save All</button>
     </div>
   </div>
 </div>
