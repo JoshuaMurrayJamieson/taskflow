@@ -1763,6 +1763,7 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--bg2);
+    position: relative;
   }
   .gantt-grid {
     min-width: 100%;
@@ -1784,7 +1785,7 @@
     background: rgba(79,142,247,0.12);
     color: var(--accent);
   }
-  .gantt-header-label { width: 180px; min-width: 180px; text-align: left !important; padding: 8px 12px !important; }
+  .gantt-header-label { width: 180px; min-width: 180px; text-align: left !important; padding: 8px 12px !important; position: sticky; left: 0; z-index: 6; background: var(--bg3); }
   .gantt-day-header { width: 28px; min-width: 28px; padding: 6px 2px !important; }
   .gantt-day-header.weekend { background: rgba(255,255,255,0.02); }
   .gantt-month-header {
@@ -1810,7 +1811,7 @@
     padding: 6px 10px !important;
     white-space: nowrap; overflow: hidden;
     background: var(--bg2) !important;
-    position: sticky; left: 0; z-index: 2;
+    position: sticky; left: 0; z-index: 4;
     border-right: 2px solid var(--border2) !important;
     min-width: 180px;
   }
@@ -1842,6 +1843,7 @@
     cursor: pointer;
     transition: filter var(--transition);
     position: relative;
+    z-index: 1;
   }
   .gantt-bar-cell:hover { filter: brightness(1.2); }
   .gantt-bar-cell .bar-inner {
@@ -2059,7 +2061,7 @@
   .gantt-course-empty-label {
     padding: 0 12px !important;
     background: var(--bg2) !important;
-    position: sticky; left: 0; z-index: 2;
+    position: sticky; left: 0; z-index: 4;
     border-right: 2px solid var(--border2) !important;
   }
   .add-course-btn {
@@ -4639,7 +4641,7 @@ function renderSemesterPlanner(content) {
     let html = '';
     // Course header row
     html += `<tr class="gantt-course-row-header">
-      <td style="color:${color};border-bottom-color:${color};background:var(--bg3);position:sticky;left:0;z-index:3;min-width:180px">
+      <td style="color:${color};border-bottom-color:${color};background:var(--bg3);position:sticky;left:0;z-index:5;min-width:180px">
         <div style="display:flex;align-items:center;gap:8px">
           <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
           ${escHtml(course.name)}
