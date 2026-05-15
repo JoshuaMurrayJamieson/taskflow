@@ -3409,7 +3409,7 @@ function renderProgressList(taskId, subId, pl) {
       <div class="prog-progress-text">${done}/${total} complete (${pct}%)</div>` : ''}
       ${itemsHtml}
       ${progTemplates.length ? `<div class="prog-template-row">
-        ${progTemplates.map(t => `<button class="prog-template-chip" style="color:${t.color};border-color:${t.color}" onclick="applyProgTemplate('${taskId}','${subId}','${pl.id}','${t.id}',null)" title="Add this item"><div class="prog-template-dot" style="background:${t.color}"></div>${escHtml(t.name)}</button>`).join('')}
+        ${progTemplates.map(t => `<button class="prog-template-chip" style="color:${t.color};border-color:${t.color}" onclick="applyProgTemplate('${taskId}','${subId}','${pl.id}','${t.id}',null)" title="Click to instantly add '${escHtml(t.name)}'"><div class="prog-template-dot" style="background:${t.color}"></div>+ ${escHtml(t.name)}</button>`).join('')}
         <button class="prog-template-apply-all" onclick="applyAllProgTemplates('${taskId}','${subId}','${pl.id}')" title="Add all template items at once">+ Add All Templates</button>
       </div>` : ''}
       <div class="prog-add-row" id="plar_${pl.id}" style="flex-wrap:wrap;gap:8px;">
@@ -6370,7 +6370,6 @@ function deleteProjNote(projectId, noteId) {
 // PROGRESS ITEM TEMPLATES
 // ============================================================
 function applyProgTemplate(taskId, subId, plId, templateId, override) {
-  // Find the list — could be in tasks or projects
   const tmpl = progTemplates.find(t => t.id === templateId);
   if (!tmpl) return;
 
@@ -6379,7 +6378,6 @@ function applyProgTemplate(taskId, subId, plId, templateId, override) {
     pl.items.push({ id: uid(), label: tmpl.name, customColor: tmpl.color, colorIdx: 0, checked: false });
   }
 
-  // Try tasks first
   let found = false;
   for (const task of tasks) {
     for (const sub of (task.subtasks||[])) {
@@ -6390,7 +6388,6 @@ function applyProgTemplate(taskId, subId, plId, templateId, override) {
     if (found) break;
   }
 
-  // Try projects
   if (!found) {
     for (const proj of projects) {
       for (const sub of (proj.subtasks||[])) {
@@ -6402,7 +6399,10 @@ function applyProgTemplate(taskId, subId, plId, templateId, override) {
     }
   }
 
-  if (found) renderContent();
+  if (found) {
+    showToast(`"${tmpl.name}" added ✓`);
+    renderContent();
+  }
 }
 
 function applyAllProgTemplates(taskId, subId, plId) {
