@@ -3251,6 +3251,9 @@ function renderTask(task) {
 
 function renderSubtask(task, s) {
   const hasLists = s.progressLists && s.progressLists.length > 0;
+  const listsOpen = s._listsOpen !== false; // default open
+  const totalItems = hasLists ? s.progressLists.reduce((a, pl) => a + (pl.items||[]).length, 0) : 0;
+  const doneItems  = hasLists ? s.progressLists.reduce((a, pl) => a + (pl.items||[]).filter(i=>i.checked).length, 0) : 0;
   const listsHtml = hasLists ? s.progressLists.map(pl => renderProgressList(task.id, s.id, pl)).join('') : '';
   return `
   <div class="subtask-indent" id="sr_${s.id}" draggable="true"
@@ -3265,6 +3268,7 @@ function renderSubtask(task, s) {
       </div>
       <span class="subtask-name ${s.completed ? 'done' : ''}">${escHtml(s.name)}</span>
       ${s.flagNote ? `<span class="subtask-flag-note">🚩 ${escHtml(s.flagNote)}</span>` : ''}
+      ${hasLists ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:1px 6px;cursor:pointer;flex-shrink:0" onclick="toggleSubtaskLists('${task.id}','${s.id}')" title="${listsOpen?'Collapse':'Expand'} progress lists"><i class="fa-solid fa-list-check" style="font-size:9px;margin-right:3px"></i>${doneItems}/${totalItems} <i class="fa-solid fa-chevron-${listsOpen?'down':'right'}" style="font-size:8px;margin-left:2px"></i></span>` : ''}
       <div class="subtask-actions">
         <button class="task-act-btn" title="Add progress list" onclick="openProgressListModal('${task.id}','${s.id}')"><i class="fa-solid fa-list-check" style="font-size:11px;color:var(--accent)"></i></button>
         <button class="task-act-btn" title="Edit subtask" onclick="openEditSubtaskModal('${task.id}','${s.id}',event)"><i class="fa-solid fa-pen" style="font-size:11px"></i></button>
@@ -3272,11 +3276,40 @@ function renderSubtask(task, s) {
         <button class="task-act-btn del" title="Delete subtask" onclick="deleteSubtask('${task.id}','${s.id}')"><i class="fa-solid fa-trash" style="font-size:11px"></i></button>
       </div>
     </div>
-    ${hasLists ? `<div class="progress-section">${listsHtml}</div>` : ''}
+    ${hasLists && listsOpen ? `<div class="progress-section">${listsHtml}</div>` : ''}
   </div>`;
 }
 
-const PROG_COLORS = ['#4f8ef7','#f05d5d','#4dcf8e','#f0b84d','#c084fc'];
+function toggleSubtaskLists(taskId, subId) {
+  const task = tasks.find(t => t.id === taskId);
+  if (!task) return;
+  const sub = (task.subtasks || []).find(s => s.id === subId);
+  if (!sub) return;
+  sub._listsOpen = sub._listsOpen === false ? true : false;
+  saveData();
+  // Toggle DOM directly without full re-render
+  const subtaskEl = document.getElementById('sr_' + subId);
+  if (subtaskEl) {
+    const progSection = subtaskEl.querySelector('.progress-section');
+    if (sub._listsOpen) {
+      // Re-render to show lists
+      renderContent();
+    } else {
+      if (progSection) progSection.style.display = 'none';
+      // Update badge chevron
+      const badge = subtaskEl.querySelector('[title$="progress lists"]');
+      if (badge) {
+        const chevron = badge.querySelector('.fa-chevron-down, .fa-chevron-right');
+        if (chevron) { chevron.className = chevron.className.replace('fa-chevron-down','fa-chevron-right'); }
+        badge.title = 'Expand progress lists';
+      }
+    }
+  } else {
+    renderContent();
+  }
+}
+
+
 const PROG_COLOR_NAMES = ['Blue','Red','Green','Amber','Purple'];
 
 function renderProgressList(taskId, subId, pl) {
