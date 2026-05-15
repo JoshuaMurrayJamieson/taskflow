@@ -2712,6 +2712,7 @@ async function loadData() {
   try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
   try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
   try { projects = JSON.parse(localStorage.getItem('wtm_projects') || '[]'); } catch { projects = []; }
+  try { progTemplates = JSON.parse(localStorage.getItem('wtm_prog_templates') || '[]'); } catch { progTemplates = []; }
   const localTasks = [...tasks];
 
   // Then try to sync with cloud
@@ -2727,7 +2728,8 @@ async function loadData() {
     const cloudArchive  = data.archive || [];
     const cloudSemester = data.semester || [];
     const cloudCourses   = data.courses  || [];
-    const cloudProjects  = data.projects || [];
+    const cloudProjects   = data.projects  || [];
+    const cloudTemplates = data.templates || [];
 
     const localSemester = [...semesterAssignments];
     if (cloudTasks.length === 0 && (localTasks.length > 0 || localSemester.length > 0)) {
@@ -2744,6 +2746,7 @@ async function loadData() {
       if (cloudSemester.length > 0) { semesterAssignments = cloudSemester; localStorage.setItem('wtm_semester', JSON.stringify(semesterAssignments)); }
       if (cloudCourses.length > 0) { semesterCourses = cloudCourses; localStorage.setItem('wtm_courses', JSON.stringify(semesterCourses)); }
       if (cloudProjects.length > 0) { projects = cloudProjects; localStorage.setItem('wtm_projects', JSON.stringify(projects)); }
+      if (cloudTemplates.length > 0) { progTemplates = cloudTemplates; localStorage.setItem('wtm_prog_templates', JSON.stringify(progTemplates)); }
       setSyncStatus('ok', 'Synced');
     } else {
       // Both empty
@@ -2771,7 +2774,7 @@ async function pushToCloud() {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-User-Id': getUserId(), 'X-App-Secret': getAppSecret() },
-      body: JSON.stringify({ tasks, archive, semester: semesterAssignments, courses: semesterCourses, projects })
+      body: JSON.stringify({ tasks, archive, semester: semesterAssignments, courses: semesterCourses, projects, templates: progTemplates })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     setSyncStatus('ok', 'Saved to cloud');
@@ -3357,6 +3360,8 @@ try { progTemplates = JSON.parse(localStorage.getItem('wtm_prog_templates') || '
 
 function saveProgTemplates() {
   localStorage.setItem('wtm_prog_templates', JSON.stringify(progTemplates));
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(pushToCloud, 500);
 }
 const PROG_COLOR_NAMES = ['Blue','Red','Green','Amber','Purple'];
 
@@ -6550,6 +6555,7 @@ function initApp() {
   try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
   try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
   try { projects = JSON.parse(localStorage.getItem('wtm_projects') || '[]'); } catch { projects = []; }
+  try { progTemplates = JSON.parse(localStorage.getItem('wtm_prog_templates') || '[]'); } catch { progTemplates = []; }
   restoreTimers();
   checkWeeklyReset();
   checkCarryover();
