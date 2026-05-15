@@ -749,7 +749,9 @@
     padding: 7px 12px 7px 12px;
     cursor: pointer;
     user-select: none;
+    transition: background var(--transition);
   }
+  .progress-list-header:hover { background: color-mix(in srgb, var(--bg3) 60%, transparent); }
   .progress-list-icon {
     font-size: 10px;
     color: var(--text3);
@@ -1760,10 +1762,13 @@
   /* Gantt grid */
   .gantt-wrap {
     overflow-x: auto;
+    overflow-y: visible;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--bg2);
     position: relative;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
   }
   .gantt-grid {
     min-width: 100%;
@@ -2190,6 +2195,190 @@
     font-family: 'JetBrains Mono', monospace; font-size: 10px;
   }
 
+
+  /* ══════════════════════════════════════
+     PROJECTS
+     ══════════════════════════════════════ */
+  .projects-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 0;
+    height: calc(100vh - 57px);
+    overflow: hidden;
+  }
+  .projects-sidebar {
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    overflow: hidden; background: var(--bg2);
+  }
+  .projects-sidebar-header {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .projects-tab-row {
+    display: flex; gap: 2px; padding: 6px;
+    background: var(--bg3);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .proj-tab {
+    flex: 1; background: none; border: none;
+    border-radius: var(--radius-sm); padding: 6px 8px;
+    cursor: pointer; font-family: 'Inter', sans-serif;
+    font-size: 12px; font-weight: 700; color: var(--text3);
+    transition: all var(--transition); line-height: 1.5;
+  }
+  .proj-tab:hover { color: var(--text2); background: var(--border); }
+  .proj-tab.active { background: var(--bg2); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+  .proj-tab.work.active   { color: var(--work); }
+  .proj-tab.uni.active    { color: var(--uni);  }
+  .proj-tab.personal.active { color: var(--med); }
+
+  .projects-list {
+    flex: 1; overflow-y: auto; padding: 8px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .project-list-item {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+    cursor: pointer; transition: all var(--transition);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .project-list-item:hover { border-color: var(--border2); background: var(--border); }
+  .project-list-item.active { border-color: var(--accent); background: rgba(79,142,247,0.08); }
+  .project-list-item-name {
+    flex: 1; font-size: 13px; font-weight: 700;
+    color: var(--text); line-height: 1.5;
+  }
+  .project-list-item-meta {
+    font-size: 10px; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .project-color-bar {
+    width: 4px; min-height: 36px; border-radius: 2px; flex-shrink: 0;
+  }
+  .proj-add-btn {
+    margin: 8px; background: none;
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius-sm); padding: 8px;
+    cursor: pointer; color: var(--text3);
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: all var(--transition); flex-shrink: 0; line-height: 1.5;
+  }
+  .proj-add-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--bg3); }
+
+  /* Project detail panel */
+  .project-detail {
+    display: flex; flex-direction: column;
+    overflow: hidden; height: 100%;
+  }
+  .project-detail-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0; background: var(--bg2);
+  }
+  .project-detail-title {
+    font-size: 20px; font-weight: 800;
+    color: var(--text); line-height: 1.4;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .project-detail-tabs {
+    display: flex; gap: 2px; margin-top: 12px;
+    background: var(--bg3); border-radius: var(--radius-sm);
+    padding: 3px; width: fit-content;
+  }
+  .project-detail-tab {
+    background: none; border: none; border-radius: 4px;
+    padding: 5px 14px; cursor: pointer;
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 700;
+    color: var(--text3); transition: all var(--transition); line-height: 1.5;
+  }
+  .project-detail-tab:hover { color: var(--text2); }
+  .project-detail-tab.active { background: var(--bg2); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.15); }
+  .project-detail-body {
+    flex: 1; overflow-y: auto; padding: 16px 20px;
+  }
+
+  /* Project info tab */
+  .proj-info-stats {
+    display: grid; grid-template-columns: repeat(3,1fr);
+    gap: 10px; margin-bottom: 20px;
+  }
+  .proj-info-stat {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 12px 14px;
+  }
+  .proj-info-stat-val {
+    font-size: 18px; font-weight: 700;
+    color: var(--text); font-family: 'JetBrains Mono', monospace;
+    line-height: 1.3;
+  }
+  .proj-info-stat-label {
+    font-size: 11px; color: var(--text3); margin-top: 2px;
+    font-weight: 600; letter-spacing: 0.3px;
+  }
+
+  /* Project timer */
+  .proj-timer-row {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px; padding: 12px 14px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+  .proj-timer-display {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 22px; font-weight: 700; color: var(--text);
+    flex: 1;
+  }
+  .proj-timer-display.running { color: var(--low); }
+
+  /* Project notes log */
+  .proj-notes-log {
+    display: flex; flex-direction: column; gap: 8px;
+    margin-top: 8px;
+  }
+  .proj-note-entry {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-sm); padding: 10px 12px;
+  }
+  .proj-note-ts {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--text3); margin-bottom: 4px;
+  }
+  .proj-note-text {
+    font-size: 13px; color: var(--text2); line-height: 1.6;
+    white-space: pre-wrap;
+  }
+  .proj-note-add-row {
+    display: flex; gap: 8px; margin-bottom: 14px;
+  }
+  .proj-note-add-row textarea {
+    flex: 1; background: var(--bg3);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 8px 10px; font-family: 'Inter', sans-serif;
+    font-size: 13px; color: var(--text); resize: none;
+    outline: none; min-height: 60px; line-height: 1.6;
+    transition: border-color var(--transition);
+  }
+  .proj-note-add-row textarea:focus { border-color: var(--accent); }
+
+  /* Empty state */
+  .proj-empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; color: var(--text3);
+    font-size: 13px; gap: 10px; text-align: center;
+  }
+  .proj-empty i { font-size: 32px; }
+
+  @media (max-width: 768px) {
+    .projects-layout { grid-template-columns: 1fr; }
+    .projects-sidebar { height: 200px; }
+    .proj-info-stats { grid-template-columns: 1fr 1fr; }
+  }
+
 </style>
 </head>
 <body>
@@ -2230,12 +2419,10 @@
   </div>
   <nav class="day-nav" id="dayNav"></nav>
   <div class="sidebar-actions" style="padding:6px 10px;border-top:1px solid var(--border)">
+    <button class="sidebar-btn" onclick="selectDay('_projects')" style="color:var(--med);border-color:rgba(240,184,77,0.3)"><i class="fa-solid fa-diagram-project"></i> Projects</button>
     <button class="sidebar-btn flag-btn" onclick="toggleFlagsPanel()"><i class="fa-solid fa-flag"></i> View All Flags</button>
     <button class="sidebar-btn" onclick="selectDay('_semester')" style="color:var(--uni);border-color:rgba(56,189,248,0.3)"><i class="fa-solid fa-graduation-cap"></i> University</button>
-    <button class="sidebar-btn" onclick="selectDay('_archive')" style="color:var(--low);border-color:rgba(77,207,142,0.3)">
-      <i class="fa-solid fa-box-archive"></i> Task Archive
-      <span id="archiveBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--low-bg);border-radius:8px;padding:1px 6px;margin-left:auto"></span>
-    </button>
+
   </div>
   <div class="sidebar-cog">
     <button class="cog-btn" id="cogBtn" onclick="toggleSettings()">
@@ -2264,6 +2451,9 @@
     <div class="settings-divider"></div>
     <button class="settings-item" onclick="toggleTheme();closeSettings()">
       <i class="fa-solid fa-circle-half-stroke" style="color:var(--text2)"></i> Toggle Theme
+    </button>
+    <button class="settings-item" onclick="selectDay('_archive');closeSettings()">
+      <i class="fa-solid fa-box-archive" style="color:var(--low)"></i> Task Archive <span id="archiveBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--low-bg);border-radius:8px;padding:1px 6px;margin-left:auto;color:var(--low)"></span>
     </button>
     <div class="settings-divider"></div>
     <div style="padding:6px 12px 2px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)">University Terms</div>
@@ -2480,6 +2670,7 @@ async function loadData() {
   try { archive = JSON.parse(localStorage.getItem('wtm_archive') || '[]'); } catch { archive = []; }
   try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
   try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
+  try { projects = JSON.parse(localStorage.getItem('wtm_projects') || '[]'); } catch { projects = []; }
   const localTasks = [...tasks];
 
   // Then try to sync with cloud
@@ -2494,7 +2685,8 @@ async function loadData() {
     const cloudTasks    = data.tasks || [];
     const cloudArchive  = data.archive || [];
     const cloudSemester = data.semester || [];
-    const cloudCourses  = data.courses  || [];
+    const cloudCourses   = data.courses  || [];
+    const cloudProjects  = data.projects || [];
 
     const localSemester = [...semesterAssignments];
     if (cloudTasks.length === 0 && (localTasks.length > 0 || localSemester.length > 0)) {
@@ -2510,6 +2702,7 @@ async function loadData() {
       if (cloudArchive.length > 0) { archive = cloudArchive; localStorage.setItem('wtm_archive', JSON.stringify(archive)); }
       if (cloudSemester.length > 0) { semesterAssignments = cloudSemester; localStorage.setItem('wtm_semester', JSON.stringify(semesterAssignments)); }
       if (cloudCourses.length > 0) { semesterCourses = cloudCourses; localStorage.setItem('wtm_courses', JSON.stringify(semesterCourses)); }
+      if (cloudProjects.length > 0) { projects = cloudProjects; localStorage.setItem('wtm_projects', JSON.stringify(projects)); }
       setSyncStatus('ok', 'Synced');
     } else {
       // Both empty
@@ -2537,7 +2730,7 @@ async function pushToCloud() {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-User-Id': getUserId(), 'X-App-Secret': getAppSecret() },
-      body: JSON.stringify({ tasks, archive, semester: semesterAssignments, courses: semesterCourses })
+      body: JSON.stringify({ tasks, archive, semester: semesterAssignments, courses: semesterCourses, projects })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     setSyncStatus('ok', 'Saved to cloud');
@@ -2672,6 +2865,10 @@ function updateTopbar() {
     t.textContent = 'University';
     s.textContent = 'Term planner & assignments';
     document.title = 'TaskFlow — University';
+  } else if (currentDay === '_projects') {
+    t.textContent = 'Projects';
+    s.textContent = 'Work, University & Personal';
+    document.title = 'TaskFlow — Projects';
   } else {
     t.textContent = currentDay;
     s.textContent = currentDay === today ? '📍 Today' : '';
@@ -2699,6 +2896,7 @@ function renderContent() {
   if (currentDay === '_carryover') { renderCarryover(content); return; }
   if (currentDay === '_archive') { renderArchive(content); return; }
   if (currentDay === '_semester') { renderSemesterPlanner(content); return; }
+  if (currentDay === '_projects') { renderProjects(content); return; }
 
   const day = currentDay;
 
@@ -3256,6 +3454,8 @@ function cwApplyColor() {
     setAsgnColor(hex);
   } else if (colorWheelTarget.type === 'course') {
     setCourseColor(hex);
+  } else if (colorWheelTarget.type === 'proj') {
+    setProjColor(hex);
   }
   closeColorWheelPopup();
 }
@@ -4092,6 +4292,7 @@ document.addEventListener('keydown', e => {
     closeDayTaskDrawer();
     closeSearch();
     closeSemPresetsModal();
+    closeProjModal();
   }
   if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display !== 'none') {
     if (document.activeElement !== document.getElementById('fName')) return;
@@ -4524,6 +4725,7 @@ function toggleSettings() {
     closeDayTaskDrawer();
     closeSearch();
     closeSemPresetsModal();
+    closeProjModal();
   } else {
     panel.classList.add('open');
     btn.classList.add('open');
@@ -4667,6 +4869,17 @@ function getPlannerDateRange() {
 // ── RENDER ────────────────────────────────────────────────────
 function renderSemesterPlanner(content) {
   autoDetectCurrentTerm();
+  // Re-attach wheel listener after next tick
+  setTimeout(() => {
+    const gw = document.querySelector('.gantt-wrap');
+    if (gw && !gw._wheelBound) {
+      gw._wheelBound = true;
+      gw.addEventListener('wheel', e => {
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+        if (e.deltaY !== 0) { e.preventDefault(); gw.scrollLeft += e.deltaY * 2; }
+      }, { passive: false });
+    }
+  }, 50);
   const { start: semStart, end: semEnd } = getSemesterDates();
   const todayStr = getTodayDate();
   const dates = getPlannerDateRange();
@@ -5538,6 +5751,346 @@ function autoDetectCurrentTerm() {
   }
 }
 
+
+// ============================================================
+// PROJECTS
+// ============================================================
+let projects = [];
+try { projects = JSON.parse(localStorage.getItem('wtm_projects') || '[]'); } catch { projects = []; }
+
+let projectsTab = 'Work';         // Work | University | Personal
+let activeProjectId = null;
+let projectDetailTab = 'tasks';   // tasks | info
+let activeProjectTimer = null;    // { projectId, startTime, interval }
+
+function saveProjects() {
+  localStorage.setItem('wtm_projects', JSON.stringify(projects));
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(pushToCloud, 500);
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderProjects(content) {
+  const tabProjects = projects.filter(p => p.category === projectsTab);
+  const activeProject = projects.find(p => p.id === activeProjectId);
+
+  const tabColor = { Work: 'var(--work)', University: 'var(--uni)', Personal: 'var(--med)' }[projectsTab];
+
+  let sidebar = `
+  <div class="projects-sidebar">
+    <div class="projects-tab-row">
+      <button class="proj-tab work ${projectsTab==='Work'?'active':''}" onclick="setProjectsTab('Work')"><i class="fa-solid fa-briefcase" style="font-size:10px;margin-right:4px"></i>Work</button>
+      <button class="proj-tab uni ${projectsTab==='University'?'active':''}" onclick="setProjectsTab('University')"><i class="fa-solid fa-graduation-cap" style="font-size:10px;margin-right:4px"></i>Uni</button>
+      <button class="proj-tab personal ${projectsTab==='Personal'?'active':''}" onclick="setProjectsTab('Personal')"><i class="fa-solid fa-user" style="font-size:10px;margin-right:4px"></i>Personal</button>
+    </div>
+    <div class="projects-list">
+      ${tabProjects.length ? tabProjects.map(p => {
+        const isRunning = activeProjectTimer && activeProjectTimer.projectId === p.id;
+        const elapsed = getProjElapsed(p.id);
+        return `<div class="project-list-item ${p.id===activeProjectId?'active':''}" onclick="selectProject('${p.id}')">
+          <div class="project-color-bar" style="background:${p.color||tabColor}"></div>
+          <div style="flex:1;min-width:0">
+            <div class="project-list-item-name">${escHtml(p.name)}</div>
+            <div class="project-list-item-meta">${isRunning ? '⏱ Running' : (elapsed > 0 ? fmtTimerMs(elapsed) + ' logged' : 'No time logged')}</div>
+          </div>
+          ${isRunning ? '<span style="font-size:10px;color:var(--low);animation:timerPulse 1.4s ease-in-out infinite">●</span>' : ''}
+        </div>`;
+      }).join('') : `<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">No ${projectsTab} projects yet</div>`}
+    </div>
+    <button class="proj-add-btn" onclick="openAddProjectModal()"><i class="fa-solid fa-plus"></i> New Project</button>
+  </div>`;
+
+  let detail = '';
+  if (!activeProject) {
+    detail = `<div class="project-detail"><div class="proj-empty"><i class="fa-solid fa-diagram-project"></i>Select or create a project</div></div>`;
+  } else {
+    const isRunning = activeProjectTimer && activeProjectTimer.projectId === activeProject.id;
+    const elapsed = getProjElapsed(activeProject.id);
+    const subtasksDone = (activeProject.subtasks||[]).filter(s=>s.completed).length;
+    const subtasksTotal = (activeProject.subtasks||[]).length;
+    const noteCount = (activeProject.notes||[]).length;
+    const lastNote = activeProject.notes && activeProject.notes.length ? activeProject.notes[activeProject.notes.length-1] : null;
+
+    const tasksTab = projectDetailTab === 'tasks' ? renderProjTasksTab(activeProject) : '';
+    const infoTab  = projectDetailTab === 'info'  ? renderProjInfoTab(activeProject)  : '';
+
+    detail = `
+    <div class="project-detail">
+      <div class="project-detail-header">
+        <div class="project-detail-title">
+          <div style="width:14px;height:14px;border-radius:50%;background:${activeProject.color||tabColor};flex-shrink:0"></div>
+          ${escHtml(activeProject.name)}
+          <div style="margin-left:auto;display:flex;gap:6px;align-items:center">
+            <button class="timer-btn ${isRunning?'running':(elapsed>0?'has-time':'')}" id="projtimerbtn_${activeProject.id}"
+              onclick="toggleProjectTimer('${activeProject.id}')">
+              <i class="fa-${isRunning?'solid':'solid'} fa-${isRunning?'stopwatch':'play'}" style="font-size:${isRunning?'12':'9'}px"></i>
+              ${isRunning ? fmtTimerMs(elapsed) : (elapsed>0 ? fmtTimerMs(elapsed) : 'Start')}
+            </button>
+            <button class="task-act-btn" onclick="openEditProjectModal('${activeProject.id}',event)" title="Edit"><i class="fa-solid fa-pen" style="font-size:11px"></i></button>
+            <button class="task-act-btn del" onclick="deleteProject('${activeProject.id}',event)" title="Delete"><i class="fa-solid fa-trash" style="font-size:11px"></i></button>
+          </div>
+        </div>
+        ${activeProject.description ? `<div style="font-size:13px;color:var(--text3);margin-top:4px;line-height:1.5">${escHtml(activeProject.description)}</div>` : ''}
+        <div class="project-detail-tabs">
+          <button class="project-detail-tab ${projectDetailTab==='tasks'?'active':''}" onclick="setProjDetailTab('tasks')"><i class="fa-solid fa-list-check" style="margin-right:4px"></i>Tasks</button>
+          <button class="project-detail-tab ${projectDetailTab==='info'?'active':''}" onclick="setProjDetailTab('info')"><i class="fa-solid fa-circle-info" style="margin-right:4px"></i>Info & Notes</button>
+        </div>
+      </div>
+      <div class="project-detail-body">
+        ${tasksTab}${infoTab}
+      </div>
+    </div>`;
+  }
+
+  content.innerHTML = `<div class="projects-layout">${sidebar}${detail}</div>`;
+
+  // Start live tick if timer running
+  if (activeProjectTimer) {
+    if (activeProjectTimer.interval) clearInterval(activeProjectTimer.interval);
+    activeProjectTimer.interval = setInterval(() => updateProjTimerDisplay(), 1000);
+  }
+}
+
+function renderProjTasksTab(project) {
+  const subs = project.subtasks || [];
+  return `
+  <div>
+    ${subs.length ? subs.map(s => `
+      <div style="display:flex;align-items:baseline;gap:8px;padding:9px 0 11px;border-bottom:1px solid var(--border)">
+        <div class="subtask-check ${s.completed?'checked':''}" onclick="toggleProjSubtask('${project.id}','${s.id}')">
+          ${s.completed ? '<i class="fa-solid fa-check" style="font-size:8px"></i>' : ''}
+        </div>
+        <span style="flex:1;font-size:14px;font-weight:600;color:${s.completed?'var(--text3)':'var(--text)'};text-decoration:${s.completed?'line-through':'none'};line-height:1.8;padding-bottom:2px">${escHtml(s.name)}</span>
+        <button class="task-act-btn del" onclick="deleteProjSubtask('${project.id}','${s.id}')" style="font-size:11px;align-self:center"><i class="fa-solid fa-trash"></i></button>
+      </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:16px 0">No subtasks yet.</div>`}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <input class="subtask-input" id="projSubInput_${project.id}" type="text"
+        placeholder="Add a subtask…" style="flex:1"
+        onkeydown="if(event.key==='Enter')addProjSubtask('${project.id}')">
+      <button class="subtask-add-btn" onclick="addProjSubtask('${project.id}')">+ Add</button>
+    </div>
+  </div>`;
+}
+
+function renderProjInfoTab(project) {
+  const elapsed = getProjElapsed(project.id);
+  const created = project.createdAt ? new Date(project.createdAt).toLocaleString('en-AU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—';
+  const lastWorked = project.lastWorkedAt ? new Date(project.lastWorkedAt).toLocaleString('en-AU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : 'Never';
+  const notes = (project.notes || []).slice().reverse(); // newest first
+
+  return `
+  <div>
+    <div class="proj-info-stats">
+      <div class="proj-info-stat">
+        <div class="proj-info-stat-val">${fmtTimerMs(elapsed)||'0:00'}</div>
+        <div class="proj-info-stat-label">Total Time</div>
+      </div>
+      <div class="proj-info-stat">
+        <div class="proj-info-stat-val">${(project.subtasks||[]).filter(s=>s.completed).length}/${(project.subtasks||[]).length}</div>
+        <div class="proj-info-stat-label">Subtasks Done</div>
+      </div>
+      <div class="proj-info-stat">
+        <div class="proj-info-stat-val">${(project.notes||[]).length}</div>
+        <div class="proj-info-stat-label">Notes</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      <div class="proj-info-stat">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:2px">Created</div>
+        <div style="font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace">${created}</div>
+      </div>
+      <div class="proj-info-stat">
+        <div style="font-size:11px;font-weight:700;color:var(--text3);margin-bottom:2px">Last Worked On</div>
+        <div style="font-size:12px;color:var(--text2);font-family:'JetBrains Mono',monospace">${lastWorked}</div>
+      </div>
+    </div>
+    <div style="font-size:12px;font-weight:700;color:var(--text3);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px">Timestamped Notes</div>
+    <div class="proj-note-add-row">
+      <textarea id="projNoteInput_${project.id}" placeholder="Add a note with timestamp…" rows="2"></textarea>
+      <button class="subtask-add-btn" onclick="addProjNote('${project.id}')" style="align-self:flex-start;white-space:nowrap">+ Add Note</button>
+    </div>
+    <div class="proj-notes-log">
+      ${notes.length ? notes.map(n => `
+        <div class="proj-note-entry">
+          <div class="proj-note-ts"><i class="fa-regular fa-clock" style="font-size:9px;margin-right:4px"></i>${n.ts}</div>
+          <div class="proj-note-text">${escHtml(n.text)}</div>
+          <button style="background:none;border:none;cursor:pointer;color:var(--text3);font-size:10px;margin-top:4px;padding:0" onclick="deleteProjNote('${project.id}','${n.id}')"><i class="fa-solid fa-xmark"></i> Remove</button>
+        </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:12px 0">No notes yet.</div>`}
+    </div>
+  </div>`;
+}
+
+// ── PROJECT TIMER ─────────────────────────────────────────────
+function getProjElapsed(projectId) {
+  const p = projects.find(pr => pr.id === projectId);
+  let ms = (p && p.timerMs) || 0;
+  if (activeProjectTimer && activeProjectTimer.projectId === projectId) {
+    ms += Date.now() - activeProjectTimer.startTime;
+  }
+  return ms;
+}
+
+function toggleProjectTimer(projectId) {
+  if (activeProjectTimer && activeProjectTimer.projectId === projectId) {
+    // Stop
+    clearInterval(activeProjectTimer.interval);
+    const elapsed = Date.now() - activeProjectTimer.startTime;
+    const p = projects.find(pr => pr.id === projectId);
+    if (p) {
+      p.timerMs = (p.timerMs || 0) + elapsed;
+      p.lastWorkedAt = new Date().toISOString();
+    }
+    activeProjectTimer = null;
+    saveProjects();
+    renderContent();
+  } else {
+    // Stop any existing
+    if (activeProjectTimer) {
+      clearInterval(activeProjectTimer.interval);
+      const elapsed2 = Date.now() - activeProjectTimer.startTime;
+      const p2 = projects.find(pr => pr.id === activeProjectTimer.projectId);
+      if (p2) { p2.timerMs = (p2.timerMs||0) + elapsed2; p2.lastWorkedAt = new Date().toISOString(); }
+      saveProjects();
+    }
+    // Start new
+    activeProjectTimer = { projectId, startTime: Date.now(), interval: null };
+    activeProjectTimer.interval = setInterval(() => updateProjTimerDisplay(), 1000);
+    renderContent();
+  }
+}
+
+function updateProjTimerDisplay() {
+  if (!activeProjectTimer) return;
+  const { projectId } = activeProjectTimer;
+  const elapsed = getProjElapsed(projectId);
+  const btn = document.getElementById('projtimerbtn_' + projectId);
+  if (btn) {
+    btn.innerHTML = `<i class="fa-solid fa-stopwatch" style="font-size:12px"></i> ${fmtTimerMs(elapsed)}`;
+  }
+}
+
+// ── PROJECT CRUD ──────────────────────────────────────────────
+function setProjectsTab(tab) { projectsTab = tab; renderContent(); }
+function setProjDetailTab(tab) { projectDetailTab = tab; renderContent(); }
+function selectProject(id) { activeProjectId = id; projectDetailTab = 'tasks'; renderContent(); }
+
+let editProjectId = null;
+function openAddProjectModal() {
+  editProjectId = null;
+  document.getElementById('projModalTitle').textContent = 'New Project';
+  document.getElementById('projName').value = '';
+  document.getElementById('projDesc').value = '';
+  document.getElementById('projCategory').value = projectsTab;
+  setProjColor('#4f8ef7');
+  document.getElementById('projModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('projName').focus(), 50);
+}
+function openEditProjectModal(id, e) {
+  if (e) e.stopPropagation();
+  const p = projects.find(pr => pr.id === id);
+  if (!p) return;
+  editProjectId = id;
+  document.getElementById('projModalTitle').textContent = 'Edit Project';
+  document.getElementById('projName').value = p.name;
+  document.getElementById('projDesc').value = p.description || '';
+  document.getElementById('projCategory').value = p.category;
+  setProjColor(p.color || '#4f8ef7');
+  document.getElementById('projModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('projName').focus(), 50);
+}
+function closeProjModal() { document.getElementById('projModal').style.display = 'none'; editProjectId = null; }
+function setProjColor(hex) {
+  const prev = document.getElementById('projColorPreview');
+  const inp = document.getElementById('projColorHex');
+  if (prev) prev.style.background = hex;
+  if (inp) inp.value = hex;
+}
+function onProjHexInput() {
+  const val = document.getElementById('projColorHex').value;
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) setProjColor(val);
+}
+function saveProject() {
+  const name = document.getElementById('projName').value.trim();
+  if (!name) { document.getElementById('projName').focus(); return; }
+  const hex = document.getElementById('projColorHex').value;
+  const desc = document.getElementById('projDesc').value.trim();
+  const cat  = document.getElementById('projCategory').value;
+  if (editProjectId) {
+    const p = projects.find(pr => pr.id === editProjectId);
+    if (p) { p.name = name; p.description = desc; p.category = cat; p.color = hex; }
+    showToast('Project updated ✓');
+  } else {
+    const newP = { id: uid(), name, description: desc, category: cat, color: hex,
+      createdAt: new Date().toISOString(), timerMs: 0, subtasks: [], notes: [] };
+    projects.push(newP);
+    activeProjectId = newP.id;
+    projectsTab = cat;
+    showToast('Project created ✓');
+  }
+  saveProjects();
+  closeProjModal();
+  renderContent();
+}
+function deleteProject(id, e) {
+  if (e) e.stopPropagation();
+  if (!confirm('Delete this project and all its data?')) return;
+  if (activeProjectTimer && activeProjectTimer.projectId === id) {
+    clearInterval(activeProjectTimer.interval); activeProjectTimer = null;
+  }
+  projects = projects.filter(p => p.id !== id);
+  if (activeProjectId === id) activeProjectId = null;
+  saveProjects(); renderContent();
+}
+
+// ── SUBTASKS ──────────────────────────────────────────────────
+function addProjSubtask(projectId) {
+  const inp = document.getElementById('projSubInput_' + projectId);
+  if (!inp) return;
+  const name = inp.value.trim(); if (!name) return;
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  if (!p.subtasks) p.subtasks = [];
+  p.subtasks.push({ id: uid(), name, completed: false });
+  inp.value = '';
+  saveProjects(); renderContent();
+}
+function toggleProjSubtask(projectId, subId) {
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (s) { s.completed = !s.completed; saveProjects(); renderContent(); }
+}
+function deleteProjSubtask(projectId, subId) {
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  p.subtasks = (p.subtasks||[]).filter(s => s.id !== subId);
+  saveProjects(); renderContent();
+}
+
+// ── NOTES ─────────────────────────────────────────────────────
+function addProjNote(projectId) {
+  const inp = document.getElementById('projNoteInput_' + projectId);
+  if (!inp) return;
+  const text = inp.value.trim(); if (!text) return;
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  if (!p.notes) p.notes = [];
+  const now = new Date();
+  p.notes.push({
+    id: uid(), text,
+    ts: now.toLocaleString('en-AU',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    createdAt: now.toISOString()
+  });
+  inp.value = '';
+  saveProjects(); renderContent();
+}
+function deleteProjNote(projectId, noteId) {
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  p.notes = (p.notes||[]).filter(n => n.id !== noteId);
+  saveProjects(); renderContent();
+}
+
 // ============================================================
 // FRIDAY AUTO-BACKUP
 // ============================================================
@@ -5573,6 +6126,7 @@ function initApp() {
   try { archive = JSON.parse(localStorage.getItem('wtm_archive') || '[]'); } catch { archive = []; }
   try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
   try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
+  try { projects = JSON.parse(localStorage.getItem('wtm_projects') || '[]'); } catch { projects = []; }
   restoreTimers();
   checkWeeklyReset();
   checkCarryover();
@@ -5871,6 +6425,44 @@ if (isLoggedIn()) {
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeSemPresetsModal()">Cancel</button>
       <button class="btn-primary" onclick="saveTermPresets()"><i class="fa-solid fa-floppy-disk"></i> Save All</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROJECT MODAL -->
+<div class="modal-overlay" id="projModal" style="display:none" onclick="if(event.target===this)closeProjModal()">
+  <div class="modal" style="width:480px">
+    <div class="modal-title" id="projModalTitle"><i class="fa-solid fa-diagram-project" style="color:var(--med)"></i> New Project</div>
+    <div class="form-group">
+      <label class="form-label">Project Name</label>
+      <input class="form-input" id="projName" type="text" placeholder="e.g. Documentary Edit" onkeydown="if(event.key==='Enter')saveProject()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description (optional)</label>
+      <input class="form-input" id="projDesc" type="text" placeholder="Brief description…">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category</label>
+      <select class="form-select" id="projCategory">
+        <option value="Work">Work</option>
+        <option value="University">University</option>
+        <option value="Personal">Personal</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Colour</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+        <div id="projColorPreview" style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border2);background:#4f8ef7;cursor:pointer;transition:transform 0.1s;flex-shrink:0"
+          onclick="openColorWheelPopup('proj',null)"
+          onmouseover="this.style.transform='scale(1.08)'"
+          onmouseout="this.style.transform='scale(1)'"></div>
+        <input id="projColorHex" class="color-hex-input" type="text" value="#4f8ef7" maxlength="7" placeholder="#rrggbb" oninput="onProjHexInput()" style="width:110px">
+        <span style="font-size:11px;color:var(--text3)">Click swatch to pick colour</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeProjModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveProject()">Save Project</button>
     </div>
   </div>
 </div>
