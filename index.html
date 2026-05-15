@@ -2729,7 +2729,10 @@ async function loadData() {
     const cloudSemester = data.semester || [];
     const cloudCourses   = data.courses  || [];
     const cloudProjects   = data.projects  || [];
-    const cloudTemplates = data.templates || [];
+    const cloudTemplates  = data.templates  || [];
+    const cloudSemPresets = data.semPresets || {};
+    const cloudSemStart   = data.semStart   || '';
+    const cloudSemEnd     = data.semEnd     || '';
 
     const localSemester = [...semesterAssignments];
     if (cloudTasks.length === 0 && (localTasks.length > 0 || localSemester.length > 0)) {
@@ -2747,6 +2750,9 @@ async function loadData() {
       if (cloudCourses.length > 0) { semesterCourses = cloudCourses; localStorage.setItem('wtm_courses', JSON.stringify(semesterCourses)); }
       if (cloudProjects.length > 0) { projects = cloudProjects; localStorage.setItem('wtm_projects', JSON.stringify(projects)); }
       if (cloudTemplates.length > 0) { progTemplates = cloudTemplates; localStorage.setItem('wtm_prog_templates', JSON.stringify(progTemplates)); }
+      if (Object.keys(cloudSemPresets).length > 0) { localStorage.setItem('wtm_sem_presets', JSON.stringify(cloudSemPresets)); }
+      if (cloudSemStart) { localStorage.setItem('wtm_sem_start', cloudSemStart); }
+      if (cloudSemEnd)   { localStorage.setItem('wtm_sem_end',   cloudSemEnd); }
       setSyncStatus('ok', 'Synced');
     } else {
       // Both empty
@@ -2774,7 +2780,7 @@ async function pushToCloud() {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-User-Id': getUserId(), 'X-App-Secret': getAppSecret() },
-      body: JSON.stringify({ tasks, archive, semester: semesterAssignments, courses: semesterCourses, projects, templates: progTemplates })
+      body: JSON.stringify({ tasks, archive, semester: semesterAssignments, courses: semesterCourses, projects, templates: progTemplates, semPresets: JSON.parse(localStorage.getItem('wtm_sem_presets')||'{}'), semStart: localStorage.getItem('wtm_sem_start')||'', semEnd: localStorage.getItem('wtm_sem_end')||'' })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     setSyncStatus('ok', 'Saved to cloud');
@@ -4920,6 +4926,8 @@ function getSemesterDates() {
 function setSemesterDates(start, end) {
   localStorage.setItem('wtm_sem_start', start);
   localStorage.setItem('wtm_sem_end', end);
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(pushToCloud, 500);
 }
 
 // ── DATE HELPERS ─────────────────────────────────────────────
@@ -5811,8 +5819,10 @@ function saveTermPresets() {
     presets['sem' + n + '_end']   = document.getElementById('semPresetEnd' + n).value;
   });
   localStorage.setItem('wtm_sem_presets', JSON.stringify(presets));
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(pushToCloud, 500);
   closeSemPresetsModal();
-  showToast('Semester dates saved ✓');
+  showToast('Term dates saved ✓');
 }
 
 function applySemesterPreset(n) {
