@@ -2030,6 +2030,67 @@
   }
   .day-task-empty i { font-size: 22px; }
 
+
+  /* ── COURSE ROWS ── */
+  .gantt-course-row-header {
+    background: var(--bg3);
+    border-bottom: 2px solid var(--border2);
+  }
+  .gantt-course-row-header td {
+    padding: 7px 12px;
+    font-size: 12px; font-weight: 800;
+    letter-spacing: 0.5px;
+    border-right: 1px solid var(--border);
+    border-bottom: 2px solid;
+    white-space: nowrap;
+    position: sticky; left: 0; z-index: 3;
+  }
+  .gantt-course-row-header .course-header-fill {
+    border-right: 1px solid var(--border);
+    border-bottom: 2px solid var(--border2);
+    background: var(--bg3);
+    padding: 0;
+  }
+  .gantt-course-empty-row td {
+    height: 38px;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .gantt-course-empty-label {
+    padding: 0 12px !important;
+    background: var(--bg2) !important;
+    position: sticky; left: 0; z-index: 2;
+    border-right: 2px solid var(--border2) !important;
+  }
+  .add-course-btn {
+    background: none; border: 1px dashed var(--border2);
+    border-radius: var(--radius-sm); padding: 6px 14px;
+    cursor: pointer; color: var(--text3);
+    font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+    transition: all var(--transition); line-height: 1.5;
+  }
+  .add-course-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--bg3); }
+  .course-manage-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-bottom: 12px; align-items: center;
+  }
+  .course-chip {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 10px 4px 8px;
+    font-size: 12px; font-weight: 700; color: var(--text2);
+    transition: border-color var(--transition);
+  }
+  .course-chip:hover { border-color: var(--border2); }
+  .course-chip-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .course-chip-del {
+    background: none; border: none; cursor: pointer;
+    color: var(--text3); font-size: 11px; padding: 0 0 0 4px;
+    transition: color var(--transition); line-height: 1;
+  }
+  .course-chip-del:hover { color: var(--high); }
+
 </style>
 </head>
 <body>
@@ -2313,6 +2374,7 @@ async function loadData() {
   try { tasks = JSON.parse(localStorage.getItem('wtm_tasks') || '[]'); } catch { tasks = []; }
   try { archive = JSON.parse(localStorage.getItem('wtm_archive') || '[]'); } catch { archive = []; }
   try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
+  try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
   const localTasks = [...tasks];
 
   // Then try to sync with cloud
@@ -2327,6 +2389,7 @@ async function loadData() {
     const cloudTasks    = data.tasks || [];
     const cloudArchive  = data.archive || [];
     const cloudSemester = data.semester || [];
+    const cloudCourses  = data.courses  || [];
 
     const localSemester = [...semesterAssignments];
     if (cloudTasks.length === 0 && (localTasks.length > 0 || localSemester.length > 0)) {
@@ -2341,6 +2404,7 @@ async function loadData() {
       localStorage.setItem('wtm_tasks', JSON.stringify(tasks));
       if (cloudArchive.length > 0) { archive = cloudArchive; localStorage.setItem('wtm_archive', JSON.stringify(archive)); }
       if (cloudSemester.length > 0) { semesterAssignments = cloudSemester; localStorage.setItem('wtm_semester', JSON.stringify(semesterAssignments)); }
+      if (cloudCourses.length > 0) { semesterCourses = cloudCourses; localStorage.setItem('wtm_courses', JSON.stringify(semesterCourses)); }
       setSyncStatus('ok', 'Synced');
     } else {
       // Both empty
@@ -2368,7 +2432,7 @@ async function pushToCloud() {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-User-Id': getUserId(), 'X-App-Secret': getAppSecret() },
-      body: JSON.stringify({ tasks, archive, semester: semesterAssignments })
+      body: JSON.stringify({ tasks, archive, semester: semesterAssignments, courses: semesterCourses })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     setSyncStatus('ok', 'Saved to cloud');
@@ -3077,6 +3141,8 @@ function cwApplyColor() {
     setEpiColor(hex);
   } else if (colorWheelTarget.type === 'asgn') {
     setAsgnColor(hex);
+  } else if (colorWheelTarget.type === 'course') {
+    setCourseColor(hex);
   }
   closeColorWheelPopup();
 }
@@ -3893,6 +3959,7 @@ document.addEventListener('keydown', e => {
     closeColorWheelPopup();
     closeSettings();
     closeAsgnModal();
+    closeCourseModal();
     closeDayTaskDrawer();
   }
   if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display !== 'none') {
@@ -4322,6 +4389,7 @@ function toggleSettings() {
   if (isOpen) {
     closeSettings();
     closeAsgnModal();
+    closeCourseModal();
     closeDayTaskDrawer();
   } else {
     panel.classList.add('open');
@@ -4399,7 +4467,9 @@ async function sendTestEmail() {
 // SEMESTER PLANNER
 // ============================================================
 let semesterAssignments = [];
+let semesterCourses = []; // [{id, name, color}]
 try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
+try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
 
 let plannerViewMode = 'month'; // 'month' | 'semester'
 let plannerMonth = new Date().getMonth();
@@ -4407,7 +4477,7 @@ let plannerYear  = new Date().getFullYear();
 
 function saveSemester() {
   localStorage.setItem('wtm_semester', JSON.stringify(semesterAssignments));
-  // Debounce cloud push
+  localStorage.setItem('wtm_courses', JSON.stringify(semesterCourses));
   clearTimeout(saveTimer);
   saveTimer = setTimeout(pushToCloud, 1500);
 }
@@ -4482,6 +4552,7 @@ function renderSemesterPlanner(content) {
       <button class="planner-view-btn ${plannerViewMode==='month'?'active':''}" onclick="setPlannerView('month')">Month</button>
       <button class="planner-view-btn ${plannerViewMode==='semester'?'active':''}" onclick="setPlannerView('semester')">Semester</button>
     </div>
+    <button class="planner-add-btn" onclick="openAddCourseModal()" style="background:var(--bg3);border:1px solid var(--border);color:var(--text2)"><i class="fa-solid fa-plus"></i> Add Course</button>
     <button class="planner-add-btn" onclick="openAddAssignmentModal()"><i class="fa-solid fa-plus"></i> Add Assignment</button>
   </div>`;
 
@@ -4493,7 +4564,7 @@ function renderSemesterPlanner(content) {
     <label style="margin-left:8px">Semester End</label>
     <input class="semester-date-input" type="date" value="${semEnd}" onchange="updateSemesterDate('end',this.value)">
     <span style="font-size:11px;color:var(--text3);margin-left:auto">
-      ${semStart && semEnd ? `${daysBetween(semStart,semEnd)} days · ${semesterAssignments.length} assignments` : 'Set dates to enable semester view'}
+      ${semStart && semEnd ? `${daysBetween(semStart,semEnd)} days · ${semesterCourses.length} courses · ${semesterAssignments.length} assignments` : 'Set dates to enable semester view'}
     </span>
   </div>`;
 
@@ -4538,77 +4609,103 @@ function renderSemesterPlanner(content) {
     monthHeaderRow += '</tr>';
   }
 
-  // Assignment rows
-  let assignmentRows = '';
-  const sorted = [...semesterAssignments].sort((a,b) => (a.dueDate||'').localeCompare(b.dueDate||''));
+  // ── COURSE-ROW GANTT ─────────────────────────────────────────
+  // Build assignment rows grouped by course, with overlap stacking
 
-  sorted.forEach(asgn => {
-    const color = asgn.color || '#4f8ef7';
-    const darkColor = color + 'cc';
-    let cells = `<td class="gantt-label-cell">
-      <div class="gantt-label-inner">
-        <div class="gantt-color-dot" style="background:${color}"></div>
-        <div style="flex:1;overflow:hidden">
-          <div class="gantt-assignment-name">${escHtml(asgn.name)}</div>
-          <div class="gantt-course-name">${escHtml(asgn.course||'')}</div>
-        </div>
-        <div class="gantt-label-actions">
-          <button class="task-act-btn" onclick="openEditAssignmentModal('${asgn.id}',event)" title="Edit"><i class="fa-solid fa-pen" style="font-size:10px"></i></button>
-          <button class="task-act-btn del" onclick="deleteAssignment('${asgn.id}',event)" title="Delete"><i class="fa-solid fa-trash" style="font-size:10px"></i></button>
-        </div>
-      </div>
-    </td>`;
+  function buildGanttRows(courseId, dates, todayStr, dayW) {
+    const course = semesterCourses.find(c => c.id === courseId);
+    if (!course) return '';
+    const color = course.color || '#4f8ef7';
+    const courseAsgns = semesterAssignments
+      .filter(a => a.courseId === courseId)
+      .sort((a,b) => (a.startDate||'').localeCompare(b.startDate||''));
 
-    dates.forEach(d => {
-      const inRange   = asgn.startDate && asgn.dueDate && d >= asgn.startDate && d <= asgn.dueDate;
-      const isStart   = d === asgn.startDate;
-      const isEnd     = d === asgn.dueDate;
-      const isDue     = d === asgn.dueDate;
-      const isToday   = d === todayStr;
-      const weekend   = isWeekend(d);
-      const dayTasks  = (asgn.dayTasks || {})[d] || [];
-      const hasItems  = dayTasks.length > 0;
-
-      if (inRange) {
-        let barClass = 'gantt-bar-cell';
-        if (isStart) barClass += ' bar-start';
-        if (isEnd)   barClass += ' bar-end';
-        if (isDue)   barClass += ' bar-due';
-        if (hasItems) barClass += ' has-note';
-        if (isToday) barClass += ' today-col';
-
-        const barStyle = `background:${color}`;
-        const label = isStart ? escHtml(asgn.name.slice(0,8)) : (isDue ? '📌' : (hasItems ? dayTasks.length : ''));
-
-        cells += `<td class="${barClass} ${weekend?'weekend-col':''} ${isToday?'today-col':''}"
-          onclick="openDayTaskDrawer('${asgn.id}','${d}',event)"
-          onmouseenter="showGanttTooltip(event,getDayTaskSummary('${asgn.id}','${d}'))"
-          onmouseleave="hideGanttTooltip()"
-          title="${d}">
-          <div class="bar-inner" style="${barStyle}">${label}</div>
-        </td>`;
-      } else {
-        cells += `<td class="${isToday?'today-col':''} ${weekend?'weekend-col':''}"
-          style="cursor:default"></td>`;
+    // Overlap stacking: assign each to a sub-row
+    const subRows = []; // array of arrays
+    courseAsgns.forEach(asgn => {
+      let placed = false;
+      for (let r = 0; r < subRows.length; r++) {
+        const last = subRows[r][subRows[r].length - 1];
+        if (!last.dueDate || !asgn.startDate || asgn.startDate > last.dueDate) {
+          subRows[r].push(asgn); placed = true; break;
+        }
       }
+      if (!placed) subRows.push([asgn]);
     });
 
-    assignmentRows += `<tr class="gantt-assignment-row">${cells}</tr>`;
-  });
+    // If no assignments, show one empty row
+    if (!subRows.length) subRows.push([]);
 
-  if (!sorted.length) {
-    assignmentRows = `<tr><td colspan="${dates.length+1}" style="padding:40px;text-align:center;color:var(--text3)">
-      <i class="fa-solid fa-graduation-cap" style="font-size:24px;display:block;margin-bottom:10px"></i>
-      No assignments yet. Click <strong>+ Add Assignment</strong> to get started.
-    </td></tr>`;
+    let html = '';
+    // Course header row
+    html += `<tr class="gantt-course-row-header">
+      <td style="color:${color};border-bottom-color:${color};background:var(--bg3);position:sticky;left:0;z-index:3;min-width:180px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
+          ${escHtml(course.name)}
+          <div style="margin-left:auto;display:flex;gap:2px;opacity:0.6">
+            <button class="task-act-btn" onclick="openEditCourseModal('${courseId}',event)" title="Edit course" style="font-size:9px"><i class="fa-solid fa-pen"></i></button>
+            <button class="task-act-btn del" onclick="deleteCourse('${courseId}',event)" title="Delete course" style="font-size:9px"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+      </td>
+      ${dates.map(d => `<td class="course-header-fill" style="border-bottom-color:${color};background:color-mix(in srgb,${color} 6%,var(--bg3));height:28px"></td>`).join('')}
+    </tr>`;
+
+    // Sub-rows
+    subRows.forEach((rowAsgns, rowIdx) => {
+      let cells = `<td class="gantt-label-cell gantt-course-empty-label" style="background:color-mix(in srgb,${color} 3%,var(--bg2))"></td>`;
+      // Build a map of date → assignment for this sub-row
+      const dateMap = {};
+      rowAsgns.forEach(asgn => {
+        if (asgn.startDate && asgn.dueDate) {
+          let cur = asgn.startDate;
+          while (cur <= asgn.dueDate) { dateMap[cur] = asgn; cur = addDays(cur, 1); }
+        }
+      });
+
+      dates.forEach(d => {
+        const asgn = dateMap[d];
+        const isToday = d === todayStr;
+        const weekend = isWeekend(d);
+        if (asgn) {
+          const isStart = d === asgn.startDate;
+          const isDue   = d === asgn.dueDate;
+          const dayTasks = (asgn.dayTasks || {})[d] || [];
+          const hasItems = dayTasks.length > 0;
+          let barClass = 'gantt-bar-cell';
+          if (isStart) barClass += ' bar-start';
+          if (isDue)   barClass += ' bar-end bar-due';
+          if (hasItems) barClass += ' has-note';
+          if (isToday) barClass += ' today-col';
+          const label = isStart ? escHtml(asgn.name.slice(0,10)) : (isDue ? '📌' : (hasItems ? dayTasks.length : ''));
+          cells += `<td class="${barClass} ${weekend?'weekend-col':''}"
+            onclick="openDayTaskDrawer('${asgn.id}','${d}',event)"
+            onmouseenter="showGanttTooltip(event,'${escHtml(asgn.name)} · '+getDayTaskSummary('${asgn.id}','${d}'))"
+            onmouseleave="hideGanttTooltip()">
+            <div class="bar-inner" style="background:${asgn.color||color}">${label}</div>
+          </td>`;
+        } else {
+          cells += `<td class="${isToday?'today-col':''} ${weekend?'weekend-col':''}" style="background:color-mix(in srgb,${color} 3%,var(--bg2));cursor:default"></td>`;
+        }
+      });
+      html += `<tr class="gantt-assignment-row">${cells}</tr>`;
+    });
+    return html;
   }
 
-  // Legend
-  const courses = [...new Set(semesterAssignments.map(a => a.course).filter(Boolean))];
-  let legend = courses.length ? `<div class="planner-legend">` + courses.map(c => {
-    const color = semesterAssignments.find(a => a.course === c)?.color || '#4f8ef7';
-    return `<div class="legend-item"><div class="legend-dot" style="background:${color}"></div>${escHtml(c)}</div>`;
-  }).join('') + `</div>` : '';
+  let assignmentRows = '';
+  if (!semesterCourses.length) {
+    assignmentRows = `<tr><td colspan="${dates.length+1}" style="padding:40px;text-align:center;color:var(--text3)">
+      <i class="fa-solid fa-graduation-cap" style="font-size:24px;display:block;margin-bottom:10px"></i>
+      No courses yet. Click <strong>+ Add Course</strong> to create your first row.
+    </td></tr>`;
+  } else {
+    semesterCourses.forEach(course => {
+      assignmentRows += buildGanttRows(course.id, dates, todayStr, dayW);
+    });
+  }
+  let legend = '';
 
   content.innerHTML = toolbar + settingsBar + `
   <div class="gantt-wrap">
@@ -4708,13 +4805,29 @@ function openAddAssignmentModal() {
   editAssignmentId = null;
   document.getElementById('asgnModalTitle').textContent = 'Add Assignment';
   document.getElementById('asgnName').value = '';
-  document.getElementById('asgnCourse').value = '';
   document.getElementById('asgnStart').value = getTodayDate();
   document.getElementById('asgnDue').value = '';
   document.getElementById('asgnDesc').value = '';
-  setAsgnColor('#4f8ef7');
+  populateCourseDropdown('asgnCourseId', null);
+  // Auto-set colour from selected course
+  updateAsgnColorFromCourse();
   document.getElementById('asgnModal').style.display = 'flex';
   setTimeout(() => document.getElementById('asgnName').focus(), 50);
+}
+
+function populateCourseDropdown(elId, selectedCourseId) {
+  const sel = document.getElementById(elId);
+  if (!sel) return;
+  sel.innerHTML = semesterCourses.length
+    ? semesterCourses.map(c => `<option value="${c.id}" ${c.id===selectedCourseId?'selected':''}>${escHtml(c.name)}</option>`).join('')
+    : '<option value="">No courses yet — add one first</option>';
+}
+
+function updateAsgnColorFromCourse() {
+  const sel = document.getElementById('asgnCourseId');
+  if (!sel || !sel.value) return;
+  const course = semesterCourses.find(c => c.id === sel.value);
+  if (course) setAsgnColor(course.color || '#4f8ef7');
 }
 function openEditAssignmentModal(id, e) {
   if (e) e.stopPropagation();
@@ -4723,10 +4836,10 @@ function openEditAssignmentModal(id, e) {
   editAssignmentId = id;
   document.getElementById('asgnModalTitle').textContent = 'Edit Assignment';
   document.getElementById('asgnName').value = asgn.name;
-  document.getElementById('asgnCourse').value = asgn.course || '';
   document.getElementById('asgnStart').value = asgn.startDate || '';
   document.getElementById('asgnDue').value = asgn.dueDate || '';
   document.getElementById('asgnDesc').value = asgn.description || '';
+  populateCourseDropdown('asgnCourseId', asgn.courseId || null);
   setAsgnColor(asgn.color || '#4f8ef7');
   document.getElementById('asgnModal').style.display = 'flex';
   setTimeout(() => document.getElementById('asgnName').focus(), 50);
@@ -4743,24 +4856,29 @@ function setAsgnColor(hex) {
   if (inp)  inp.value = hex;
 }
 function saveAssignment() {
-  const name  = document.getElementById('asgnName').value.trim();
-  const course = document.getElementById('asgnCourse').value.trim();
-  const start = document.getElementById('asgnStart').value;
-  const due   = document.getElementById('asgnDue').value;
-  const desc  = document.getElementById('asgnDesc').value.trim();
-  if (!name) { document.getElementById('asgnName').focus(); return; }
-  if (!due)  { document.getElementById('asgnDue').focus(); return; }
+  const name    = document.getElementById('asgnName').value.trim();
+  const courseId = document.getElementById('asgnCourseId').value;
+  const start   = document.getElementById('asgnStart').value;
+  const due     = document.getElementById('asgnDue').value;
+  const desc    = document.getElementById('asgnDesc').value.trim();
+  if (!name)     { document.getElementById('asgnName').focus(); return; }
+  if (!courseId) { showToast('Please select a course first'); return; }
+  if (!due)      { document.getElementById('asgnDue').focus(); return; }
+  const course = semesterCourses.find(c => c.id === courseId);
   if (editAssignmentId) {
     const asgn = semesterAssignments.find(a => a.id === editAssignmentId);
     if (asgn) {
-      asgn.name = name; asgn.course = course; asgn.startDate = start;
-      asgn.dueDate = due; asgn.description = desc; asgn.color = asgnPickerColor;
+      asgn.name = name; asgn.courseId = courseId;
+      asgn.course = course?.name || '';
+      asgn.startDate = start; asgn.dueDate = due;
+      asgn.description = desc; asgn.color = asgnPickerColor;
     }
     showToast('Assignment updated ✓');
   } else {
     semesterAssignments.push({
-      id: uid(), name, course, startDate: start, dueDate: due,
-      description: desc, color: asgnPickerColor, dayNotes: {}
+      id: uid(), name, courseId, course: course?.name || '',
+      startDate: start, dueDate: due, description: desc,
+      color: asgnPickerColor, dayTasks: {}
     });
     showToast('Assignment added ✓');
   }
@@ -4958,6 +5076,86 @@ function deleteDaySubtask(taskId, subId) {
   if (t) { t.subtasks = (t.subtasks||[]).filter(s => s.id !== subId); saveSemester(); renderDayTasks(); }
 }
 
+
+// ============================================================
+// COURSE ROW MANAGEMENT
+// ============================================================
+let editCourseId = null;
+let coursePickerColor = '#4f8ef7';
+
+function openAddCourseModal() {
+  editCourseId = null;
+  document.getElementById('courseModalTitle').textContent = 'Add Course';
+  document.getElementById('courseName').value = '';
+  setCourseColor('#4f8ef7');
+  document.getElementById('courseModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('courseName').focus(), 50);
+}
+
+function openEditCourseModal(id, e) {
+  if (e) e.stopPropagation();
+  const course = semesterCourses.find(c => c.id === id);
+  if (!course) return;
+  editCourseId = id;
+  document.getElementById('courseModalTitle').textContent = 'Edit Course';
+  document.getElementById('courseName').value = course.name;
+  setCourseColor(course.color || '#4f8ef7');
+  document.getElementById('courseModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('courseName').focus(), 50);
+}
+
+function closeCourseModal() {
+  document.getElementById('courseModal').style.display = 'none';
+  editCourseId = null;
+}
+
+function setCourseColor(hex) {
+  coursePickerColor = hex;
+  const prev = document.getElementById('courseColorPreview');
+  const inp  = document.getElementById('courseColorHex');
+  if (prev) prev.style.background = hex;
+  if (inp)  inp.value = hex;
+}
+
+function onCourseHexInput() {
+  const val = document.getElementById('courseColorHex').value;
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) {
+    coursePickerColor = val;
+    document.getElementById('courseColorPreview').style.background = val;
+  }
+}
+
+function saveCourse() {
+  const name = document.getElementById('courseName').value.trim();
+  if (!name) { document.getElementById('courseName').focus(); return; }
+  if (editCourseId) {
+    const course = semesterCourses.find(c => c.id === editCourseId);
+    if (course) { course.name = name; course.color = coursePickerColor; }
+    showToast('Course updated ✓');
+  } else {
+    semesterCourses.push({ id: uid(), name, color: coursePickerColor });
+    showToast('Course added ✓');
+  }
+  saveSemester();
+  closeCourseModal();
+  renderContent();
+}
+
+function deleteCourse(id, e) {
+  if (e) e.stopPropagation();
+  const course = semesterCourses.find(c => c.id === id);
+  const hasAsgns = semesterAssignments.some(a => a.courseId === id);
+  if (hasAsgns) {
+    if (!confirm(`Delete "${course?.name}" and all its assignments?`)) return;
+    semesterAssignments = semesterAssignments.filter(a => a.courseId !== id);
+  } else {
+    if (!confirm(`Delete course "${course?.name}"?`)) return;
+  }
+  semesterCourses = semesterCourses.filter(c => c.id !== id);
+  saveSemester();
+  renderContent();
+}
+
 // ============================================================
 // FRIDAY AUTO-BACKUP
 // ============================================================
@@ -4992,6 +5190,7 @@ function initApp() {
   try { tasks = JSON.parse(localStorage.getItem('wtm_tasks') || '[]'); } catch { tasks = []; }
   try { archive = JSON.parse(localStorage.getItem('wtm_archive') || '[]'); } catch { archive = []; }
   try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
+  try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
   restoreTimers();
   checkCarryover();
   buildSidebar();
@@ -5137,6 +5336,33 @@ if (isLoggedIn()) {
   </div>
 </div>
 
+<!-- COURSE MODAL -->
+<div class="modal-overlay" id="courseModal" style="display:none" onclick="if(event.target===this)closeCourseModal()">
+  <div class="modal" style="width:400px">
+    <div class="modal-title" id="courseModalTitle"><i class="fa-solid fa-graduation-cap" style="color:var(--uni)"></i> Add Course</div>
+    <div class="form-group">
+      <label class="form-label">Course Name / Code</label>
+      <input class="form-input" id="courseName" type="text" placeholder="e.g. COMP2812" onkeydown="if(event.key==='Enter')saveCourse()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Colour</label>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+        <div id="courseColorPreview" style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border2);background:#4f8ef7;cursor:pointer;transition:transform 0.1s;flex-shrink:0"
+          onclick="openColorWheelPopup('course',null)"
+          onmouseover="this.style.transform='scale(1.08)'"
+          onmouseout="this.style.transform='scale(1)'"></div>
+        <input id="courseColorHex" class="color-hex-input" type="text" value="#4f8ef7" maxlength="7"
+          placeholder="#rrggbb" oninput="onCourseHexInput()" style="width:110px">
+        <span style="font-size:11px;color:var(--text3)">Click swatch to pick colour</span>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeCourseModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveCourse()">Save Course</button>
+    </div>
+  </div>
+</div>
+
 <!-- ADD/EDIT ASSIGNMENT MODAL -->
 <div class="modal-overlay" id="asgnModal" style="display:none" onclick="if(event.target===this)closeAsgnModal()">
   <div class="modal" style="width:500px">
@@ -5147,8 +5373,10 @@ if (isLoggedIn()) {
         <input class="form-input" id="asgnName" type="text" placeholder="e.g. Research Essay" onkeydown="if(event.key==='Enter')saveAssignment()">
       </div>
       <div class="form-group">
-        <label class="form-label">Course / Subject</label>
-        <input class="form-input" id="asgnCourse" type="text" placeholder="e.g. COMP2812">
+        <label class="form-label">Course</label>
+        <select class="form-select" id="asgnCourseId" onchange="updateAsgnColorFromCourse()">
+          <option value="">Select a course…</option>
+        </select>
       </div>
     </div>
     <div class="form-row">
@@ -5166,7 +5394,7 @@ if (isLoggedIn()) {
       <input class="form-input" id="asgnDesc" type="text" placeholder="Brief description…">
     </div>
     <div class="form-group">
-      <label class="form-label">Colour</label>
+      <label class="form-label">Override Colour (optional)</label>
       <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
         <div id="asgnColorPreview" style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border2);background:#4f8ef7;cursor:pointer;transition:transform 0.1s;flex-shrink:0"
           onclick="openColorWheelPopup('asgn',null)"
@@ -5174,7 +5402,7 @@ if (isLoggedIn()) {
           onmouseout="this.style.transform='scale(1)'"></div>
         <input id="asgnColorHex" class="color-hex-input" type="text" value="#4f8ef7" maxlength="7"
           placeholder="#rrggbb" oninput="onAsgnHexInput()" style="width:110px">
-        <span style="font-size:11px;color:var(--text3)">Click swatch to open colour picker</span>
+        <span style="font-size:11px;color:var(--text3)">Defaults to course colour</span>
       </div>
     </div>
     <div class="modal-footer">
