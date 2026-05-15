@@ -5976,6 +5976,10 @@ function renderProjTasksTab(project) {
         ${total ? `<div class="prog-progress-bar"><div class="prog-progress-fill" style="width:${pct}%"></div></div>
         <div class="prog-progress-text">${done}/${total} complete (${pct}%)</div>` : ''}
         ${itemsHtml}
+        ${progTemplates.length ? `<div class="prog-template-row">
+          ${progTemplates.map(t => `<button class="prog-template-chip" style="color:${t.color};border-color:${t.color}" onclick="applyProgTemplate('${projId}','${subId}','${pl.id}','${t.id}',null)" title="Click to instantly add '${escHtml(t.name)}'"><div class="prog-template-dot" style="background:${t.color}"></div>+ ${escHtml(t.name)}</button>`).join('')}
+          <button class="prog-template-apply-all" onclick="applyAllProgTemplates('${projId}','${subId}','${pl.id}')">+ Add All Templates</button>
+        </div>` : ''}
         <div class="prog-add-row">
           <input class="subtask-input" id="projpli_${pl.id}" type="text" placeholder="Add item label…" style="font-size:12px" onkeydown="if(event.key==='Enter')addProjProgItem('${projId}','${subId}','${pl.id}')">
           <div class="color-picker-row" id="projplc_${pl.id}">
