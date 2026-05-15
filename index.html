@@ -2379,6 +2379,44 @@
     .proj-info-stats { grid-template-columns: 1fr 1fr; }
   }
 
+
+  /* ── PROGRESS ITEM TEMPLATES ── */
+  .prog-template-row {
+    display: flex; flex-wrap: wrap; gap: 4px;
+    margin-bottom: 6px; align-items: center;
+  }
+  .prog-template-chip {
+    display: flex; align-items: center; gap: 4px;
+    border: 1.5px solid; border-radius: 20px;
+    padding: 2px 8px 2px 6px; font-size: 11px;
+    font-weight: 600; cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all var(--transition); line-height: 1.6;
+    background: transparent;
+  }
+  .prog-template-chip:hover { opacity: 0.8; transform: scale(1.05); }
+  .prog-template-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .prog-template-apply-all {
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: 20px; padding: 2px 10px;
+    font-size: 11px; font-weight: 600;
+    color: var(--text3); cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all var(--transition); line-height: 1.6;
+    margin-left: auto;
+  }
+  .prog-template-apply-all:hover { background: var(--border2); color: var(--text); }
+
+  /* Template manager in settings */
+  .template-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); margin-bottom: 6px;
+  }
+  .template-item-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .template-item-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.5; }
+
 </style>
 </head>
 <body>
@@ -2457,6 +2495,9 @@
     </button>
     <div class="settings-divider"></div>
     <div style="padding:6px 12px 2px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)">University Terms</div>
+    <button class="settings-item" onclick="openProgTemplatesModal()">
+      <i class="fa-solid fa-layer-group" style="color:var(--accent)"></i> Progress Templates
+    </button>
     <button class="settings-item" onclick="openSemesterPresetsModal()">
       <i class="fa-solid fa-calendar-days" style="color:var(--uni)"></i> Term Dates
     </button>
@@ -3311,6 +3352,12 @@ function toggleSubtaskLists(taskId, subId) {
 
 
 const PROG_COLORS = ['#4f8ef7','#f05d5d','#4dcf8e','#f0b84d','#c084fc'];
+let progTemplates = [];
+try { progTemplates = JSON.parse(localStorage.getItem('wtm_prog_templates') || '[]'); } catch { progTemplates = []; }
+
+function saveProgTemplates() {
+  localStorage.setItem('wtm_prog_templates', JSON.stringify(progTemplates));
+}
 const PROG_COLOR_NAMES = ['Blue','Red','Green','Amber','Purple'];
 
 function renderProgressList(taskId, subId, pl) {
@@ -3361,6 +3408,10 @@ function renderProgressList(taskId, subId, pl) {
       ${total ? `<div class="prog-progress-bar"><div class="prog-progress-fill" style="width:${pct}%"></div></div>
       <div class="prog-progress-text">${done}/${total} complete (${pct}%)</div>` : ''}
       ${itemsHtml}
+      ${progTemplates.length ? `<div class="prog-template-row">
+        ${progTemplates.map(t => `<button class="prog-template-chip" style="color:${t.color};border-color:${t.color}" onclick="applyProgTemplate('${taskId}','${subId}','${pl.id}','${t.id}',null)" title="Add this item"><div class="prog-template-dot" style="background:${t.color}"></div>${escHtml(t.name)}</button>`).join('')}
+        <button class="prog-template-apply-all" onclick="applyAllProgTemplates('${taskId}','${subId}','${pl.id}')" title="Add all template items at once">+ Add All Templates</button>
+      </div>` : ''}
       <div class="prog-add-row" id="plar_${pl.id}" style="flex-wrap:wrap;gap:8px;">
         <input class="subtask-input" id="pli_${pl.id}" type="text" placeholder="Add item label…" style="font-size:12px;flex:1;min-width:120px" onkeydown="if(event.key==='Enter')addProgItem('${taskId}','${subId}','${pl.id}')">
         <div style="display:flex;align-items:center;gap:6px">
@@ -3490,6 +3541,8 @@ function cwApplyColor() {
     setCourseColor(hex);
   } else if (colorWheelTarget.type === 'proj') {
     setProjColor(hex);
+  } else if (colorWheelTarget.type === 'tmpl') {
+    setTemplateColor(hex);
   }
   closeColorWheelPopup();
 }
@@ -4328,6 +4381,7 @@ document.addEventListener('keydown', e => {
     closeSemPresetsModal();
     closeProjModal();
     closeProjProgListModal();
+    closeProgTemplatesModal();
   }
   if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display !== 'none') {
     if (document.activeElement !== document.getElementById('fName')) return;
@@ -6311,6 +6365,151 @@ function deleteProjNote(projectId, noteId) {
   saveProjects(); renderContent();
 }
 
+
+// ============================================================
+// PROGRESS ITEM TEMPLATES
+// ============================================================
+function applyProgTemplate(taskId, subId, plId, templateId, override) {
+  // Find the list — could be in tasks or projects
+  const tmpl = progTemplates.find(t => t.id === templateId);
+  if (!tmpl) return;
+
+  function pushItem(pl) {
+    if (!pl) return;
+    pl.items.push({ id: uid(), label: tmpl.name, customColor: tmpl.color, colorIdx: 0, checked: false });
+  }
+
+  // Try tasks first
+  let found = false;
+  for (const task of tasks) {
+    for (const sub of (task.subtasks||[])) {
+      if (sub.id !== subId) continue;
+      const pl = (sub.progressLists||[]).find(p => p.id === plId);
+      if (pl) { pushItem(pl); saveData(); found = true; break; }
+    }
+    if (found) break;
+  }
+
+  // Try projects
+  if (!found) {
+    for (const proj of projects) {
+      for (const sub of (proj.subtasks||[])) {
+        if (sub.id !== subId) continue;
+        const pl = (sub.progressLists||[]).find(p => p.id === plId);
+        if (pl) { pushItem(pl); saveProjects(); found = true; break; }
+      }
+      if (found) break;
+    }
+  }
+
+  if (found) renderContent();
+}
+
+function applyAllProgTemplates(taskId, subId, plId) {
+  if (!progTemplates.length) { showToast('No templates saved yet'); return; }
+
+  function pushAll(pl) {
+    if (!pl) return;
+    progTemplates.forEach(tmpl => {
+      pl.items.push({ id: uid(), label: tmpl.name, customColor: tmpl.color, colorIdx: 0, checked: false });
+    });
+  }
+
+  let found = false;
+  for (const task of tasks) {
+    for (const sub of (task.subtasks||[])) {
+      if (sub.id !== subId) continue;
+      const pl = (sub.progressLists||[]).find(p => p.id === plId);
+      if (pl) { pushAll(pl); saveData(); found = true; break; }
+    }
+    if (found) break;
+  }
+  if (!found) {
+    for (const proj of projects) {
+      for (const sub of (proj.subtasks||[])) {
+        if (sub.id !== subId) continue;
+        const pl = (sub.progressLists||[]).find(p => p.id === plId);
+        if (pl) { pushAll(pl); saveProjects(); found = true; break; }
+      }
+      if (found) break;
+    }
+  }
+  if (found) { renderContent(); showToast(progTemplates.length + ' template items added ✓'); }
+}
+
+// ── TEMPLATE MANAGER MODAL ─────────────────────────────────
+let editTemplateId = null;
+let templatePickerColor = '#4f8ef7';
+
+function openProgTemplatesModal() {
+  closeSettings();
+  renderTemplateList();
+  document.getElementById('progTemplatesModal').style.display = 'flex';
+}
+function closeProgTemplatesModal() {
+  document.getElementById('progTemplatesModal').style.display = 'none';
+  editTemplateId = null;
+}
+function renderTemplateList() {
+  const list = document.getElementById('templateList');
+  if (!list) return;
+  if (!progTemplates.length) {
+    list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">No templates yet. Add one below.</div>';
+    return;
+  }
+  list.innerHTML = progTemplates.map(t => `
+    <div class="template-item">
+      <div class="template-item-dot" style="background:${t.color}"></div>
+      <span class="template-item-name">${escHtml(t.name)}</span>
+      <button class="task-act-btn" onclick="editTemplate('${t.id}')" title="Edit"><i class="fa-solid fa-pen" style="font-size:11px"></i></button>
+      <button class="task-act-btn del" onclick="deleteTemplate('${t.id}')" title="Delete"><i class="fa-solid fa-trash" style="font-size:11px"></i></button>
+    </div>`).join('');
+}
+function setTemplateColor(hex) {
+  templatePickerColor = hex;
+  const prev = document.getElementById('tmplColorPreview');
+  const inp  = document.getElementById('tmplColorHex');
+  if (prev) prev.style.background = hex;
+  if (inp)  inp.value = hex;
+}
+function onTmplHexInput() {
+  const val = document.getElementById('tmplColorHex').value;
+  if (/^#[0-9a-fA-F]{6}$/.test(val)) setTemplateColor(val);
+}
+function addTemplate() {
+  const name = document.getElementById('tmplName').value.trim();
+  if (!name) { document.getElementById('tmplName').focus(); return; }
+  if (editTemplateId) {
+    const t = progTemplates.find(t => t.id === editTemplateId);
+    if (t) { t.name = name; t.color = templatePickerColor; }
+    editTemplateId = null;
+    document.getElementById('tmplSaveBtn').textContent = '+ Add Template';
+    showToast('Template updated ✓');
+  } else {
+    progTemplates.push({ id: uid(), name, color: templatePickerColor });
+    showToast('Template added ✓');
+  }
+  saveProgTemplates();
+  document.getElementById('tmplName').value = '';
+  setTemplateColor('#4f8ef7');
+  renderTemplateList();
+}
+function editTemplate(id) {
+  const t = progTemplates.find(t => t.id === id);
+  if (!t) return;
+  editTemplateId = id;
+  document.getElementById('tmplName').value = t.name;
+  setTemplateColor(t.color);
+  document.getElementById('tmplSaveBtn').textContent = 'Save Changes';
+  document.getElementById('tmplName').focus();
+}
+function deleteTemplate(id) {
+  progTemplates = progTemplates.filter(t => t.id !== id);
+  saveProgTemplates();
+  renderTemplateList();
+  showToast('Template deleted');
+}
+
 // ============================================================
 // FRIDAY AUTO-BACKUP
 // ============================================================
@@ -6645,6 +6844,36 @@ if (isLoggedIn()) {
     <div class="modal-footer">
       <button class="btn-secondary" onclick="closeSemPresetsModal()">Cancel</button>
       <button class="btn-primary" onclick="saveTermPresets()"><i class="fa-solid fa-floppy-disk"></i> Save All</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRESS TEMPLATES MODAL -->
+<div class="modal-overlay" id="progTemplatesModal" style="display:none" onclick="if(event.target===this)closeProgTemplatesModal()">
+  <div class="modal" style="width:480px">
+    <div class="modal-title"><i class="fa-solid fa-layer-group" style="color:var(--accent)"></i> Progress Item Templates</div>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:16px;line-height:1.6">Create reusable items that can be added to any progress list with one click.</p>
+
+    <!-- Existing templates -->
+    <div id="templateList" style="margin-bottom:16px;max-height:200px;overflow-y:auto"></div>
+
+    <!-- Add / edit template -->
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)">Add Template Item</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input class="form-input" id="tmplName" type="text" placeholder="Item label… e.g. Edited" style="flex:1" onkeydown="if(event.key==='Enter')addTemplate()">
+        <div id="tmplColorPreview" style="width:36px;height:36px;border-radius:8px;border:2px solid var(--border2);background:#4f8ef7;cursor:pointer;flex-shrink:0;transition:transform 0.1s"
+          onclick="openColorWheelPopup('tmpl',null)"
+          onmouseover="this.style.transform='scale(1.08)'"
+          onmouseout="this.style.transform='scale(1)'"
+          title="Pick colour"></div>
+        <input id="tmplColorHex" class="color-hex-input" type="text" value="#4f8ef7" maxlength="7" placeholder="#rrggbb" oninput="onTmplHexInput()" style="width:90px">
+      </div>
+      <button class="btn-primary" id="tmplSaveBtn" onclick="addTemplate()" style="align-self:flex-start">+ Add Template</button>
+    </div>
+
+    <div class="modal-footer" style="margin-top:16px">
+      <button class="btn-secondary" onclick="closeProgTemplatesModal()">Done</button>
     </div>
   </div>
 </div>
