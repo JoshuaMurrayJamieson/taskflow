@@ -2425,7 +2425,7 @@ function saveData() {
 
   // Debounce cloud save by 1.5s so rapid changes batch together
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(pushToCloud, 1500);
+  saveTimer = setTimeout(pushToCloud, 500);
 }
 
 async function pushToCloud() {
@@ -3378,6 +3378,21 @@ function cleanDrag() {
   });
 }
 document.addEventListener('dragend', cleanDrag);
+
+// Force cloud push when closing/navigating away
+window.addEventListener('beforeunload', () => {
+  clearTimeout(saveTimer);
+  // Synchronous localStorage is fine, cloud push is best-effort
+  localStorage.setItem('wtm_tasks', JSON.stringify(tasks));
+  localStorage.setItem('wtm_archive', JSON.stringify(archive));
+  localStorage.setItem('wtm_semester', JSON.stringify(semesterAssignments));
+  localStorage.setItem('wtm_courses', JSON.stringify(semesterCourses));
+  // Try to push - browser may or may not complete this
+  navigator.sendBeacon && navigator.sendBeacon(
+    API_URL,
+    JSON.stringify({ tasks, archive, semester: semesterAssignments, courses: semesterCourses })
+  );
+});
 
 // Global mouse tracking for colour wheel drag outside canvas
 document.addEventListener('mousemove', e => {
@@ -4481,7 +4496,7 @@ function saveSemester() {
   localStorage.setItem('wtm_semester', JSON.stringify(semesterAssignments));
   localStorage.setItem('wtm_courses', JSON.stringify(semesterCourses));
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(pushToCloud, 1500);
+  saveTimer = setTimeout(pushToCloud, 500);
 }
 
 function getSemesterDates() {
