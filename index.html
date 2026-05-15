@@ -6238,6 +6238,14 @@ function deleteProjProgList(projectId, subId, plId, e) {
   s.progressLists = (s.progressLists||[]).filter(pl => pl.id !== plId);
   saveProjects(); renderContent();
 }
+// Shared colour swatch selector for progress lists
+function selectProgColor(containerId, idx, el) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
 function addProjProgItem(projectId, subId, plId) {
   const inp = document.getElementById('projpli_' + plId);
   if (!inp) return;
@@ -6245,15 +6253,17 @@ function addProjProgItem(projectId, subId, plId) {
   const colRow = document.getElementById('projplc_' + plId);
   const selSwatch = colRow ? colRow.querySelector('.color-swatch.selected') : null;
   const colorIdx = selSwatch ? parseInt(selSwatch.dataset.idx) : 0;
+  const customColor = PROG_COLORS[colorIdx] || PROG_COLORS[0];
   const p = projects.find(pr => pr.id === projectId);
   if (!p) return;
   const s = (p.subtasks||[]).find(s => s.id === subId);
   if (!s) return;
   const pl = (s.progressLists||[]).find(pl => pl.id === plId);
   if (!pl) return;
-  pl.items.push({ id: uid(), label, colorIdx, customColor: PROG_COLORS[colorIdx], checked: false });
+  pl.items.push({ id: uid(), label, colorIdx, customColor, checked: false });
   inp.value = '';
-  saveProjects(); renderContent();
+  saveProjects();
+  renderContent();
 }
 function toggleProjProgItem(projectId, subId, plId, itemId) {
   const p = projects.find(pr => pr.id === projectId);
