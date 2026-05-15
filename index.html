@@ -2093,6 +2093,103 @@
   }
   .course-chip-del:hover { color: var(--high); }
 
+
+  /* ── GLOBAL SEARCH ── */
+  .search-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    display: none;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 80px;
+    backdrop-filter: blur(4px);
+    animation: fadeIn 0.15s ease;
+  }
+  .search-overlay.open { display: flex; }
+  .search-box {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    width: 620px;
+    max-width: 95vw;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    overflow: hidden;
+    animation: slideUp 0.18s ease;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+  }
+  .search-input-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .search-input-row i { color: var(--text3); font-size: 16px; flex-shrink: 0; }
+  .search-main-input {
+    flex: 1; background: none; border: none; outline: none;
+    font-family: 'Inter', sans-serif; font-size: 16px;
+    color: var(--text); line-height: 1.5;
+  }
+  .search-main-input::placeholder { color: var(--text3); }
+  .search-results {
+    overflow-y: auto; flex: 1;
+    padding: 8px 0;
+  }
+  .search-result-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 20px; cursor: pointer;
+    transition: background var(--transition);
+  }
+  .search-result-item:hover, .search-result-item.selected {
+    background: var(--bg3);
+  }
+  .search-result-icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0;
+  }
+  .search-result-name {
+    flex: 1; font-size: 14px; font-weight: 600;
+    color: var(--text); line-height: 1.5;
+  }
+  .search-result-name mark {
+    background: rgba(79,142,247,0.25);
+    color: var(--accent); border-radius: 2px; padding: 0 2px;
+  }
+  .search-result-meta {
+    font-size: 11px; color: var(--text3);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+  .search-result-sub {
+    font-size: 12px; color: var(--text3);
+    margin-top: 1px; line-height: 1.4;
+  }
+  .search-empty {
+    padding: 32px; text-align: center;
+    color: var(--text3); font-size: 13px;
+  }
+  .search-section-label {
+    padding: 8px 20px 4px;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase;
+    color: var(--text3);
+  }
+  .search-footer {
+    padding: 8px 20px;
+    border-top: 1px solid var(--border);
+    display: flex; gap: 16px;
+    font-size: 11px; color: var(--text3);
+    flex-shrink: 0;
+  }
+  .search-footer kbd {
+    background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 4px; padding: 1px 5px;
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  }
+
 </style>
 </head>
 <body>
@@ -2134,7 +2231,7 @@
   <nav class="day-nav" id="dayNav"></nav>
   <div class="sidebar-actions" style="padding:6px 10px;border-top:1px solid var(--border)">
     <button class="sidebar-btn flag-btn" onclick="toggleFlagsPanel()"><i class="fa-solid fa-flag"></i> View All Flags</button>
-    <button class="sidebar-btn" onclick="selectDay('_semester')" style="color:var(--uni);border-color:rgba(56,189,248,0.3)"><i class="fa-solid fa-calendar-days"></i> Semester Planner</button>
+    <button class="sidebar-btn" onclick="selectDay('_semester')" style="color:var(--uni);border-color:rgba(56,189,248,0.3)"><i class="fa-solid fa-graduation-cap"></i> University</button>
     <button class="sidebar-btn" onclick="selectDay('_archive')" style="color:var(--low);border-color:rgba(77,207,142,0.3)">
       <i class="fa-solid fa-box-archive"></i> Task Archive
       <span id="archiveBadge" style="font-family:'JetBrains Mono',monospace;font-size:10px;background:var(--low-bg);border-radius:8px;padding:1px 6px;margin-left:auto"></span>
@@ -2169,6 +2266,11 @@
       <i class="fa-solid fa-circle-half-stroke" style="color:var(--text2)"></i> Toggle Theme
     </button>
     <div class="settings-divider"></div>
+    <div style="padding:6px 12px 2px;font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--text3)">University Semesters</div>
+    <button class="settings-item" onclick="openSemesterPresetsModal()">
+      <i class="fa-solid fa-calendar-days" style="color:var(--uni)"></i> Semester Dates
+    </button>
+    <div class="settings-divider"></div>
     <button class="settings-item danger" onclick="logout()">
       <i class="fa-solid fa-right-from-bracket"></i> Log Out
     </button>
@@ -2184,6 +2286,7 @@
     <button id="menuToggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
     <div class="topbar-controls">
       <button class="pause-session-btn" id="pauseSessionBtn" onclick="togglePauseSession()" style="display:none"><i class="fa-solid fa-pause"></i> Pause Session</button>
+      <button class="icon-btn" title="Search (Ctrl+K)" onclick="openSearch()"><i class="fa-solid fa-magnifying-glass"></i></button>
       <button class="icon-btn" title="Toggle theme" onclick="toggleTheme()"><i class="fa-solid fa-circle-half-stroke"></i></button>
       <button class="add-task-btn" onclick="openAddModal()"><i class="fa-solid fa-plus"></i><span class="btn-label-full"> Add Task</span><span class="btn-label-short" style="display:none"> Add</span></button>
     </div>
@@ -3967,6 +4070,7 @@ function showToast(msg) {
 // KEYBOARD
 // ============================================================
 document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); openSearch(); return; }
   if (e.key === 'Escape') {
     closeModal();
     closeFlagModal();
@@ -3978,6 +4082,8 @@ document.addEventListener('keydown', e => {
     closeAsgnModal();
     closeCourseModal();
     closeDayTaskDrawer();
+    closeSearch();
+    closeSemPresetsModal();
   }
   if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display !== 'none') {
     if (document.activeElement !== document.getElementById('fName')) return;
@@ -4408,6 +4514,8 @@ function toggleSettings() {
     closeAsgnModal();
     closeCourseModal();
     closeDayTaskDrawer();
+    closeSearch();
+    closeSemPresetsModal();
   } else {
     panel.classList.add('open');
     btn.classList.add('open');
@@ -5173,6 +5281,235 @@ function deleteCourse(id, e) {
   renderContent();
 }
 
+
+// ============================================================
+// RECURRING TASK WEEKLY RESET
+// ============================================================
+function checkWeeklyReset() {
+  const todayStr = getTodayDate();
+  const lastReset = localStorage.getItem('wtm_weekly_reset');
+  if (lastReset === todayStr) return;
+
+  const today = new Date();
+  // Only reset on Monday (start of work week)
+  if (today.getDay() !== 1) return;
+
+  let changed = false;
+  tasks.forEach(task => {
+    if (task.frequency !== 'Recurring') return;
+    if (task.completed) {
+      task.completed = false;
+      // Reset subtasks too
+      (task.subtasks || []).forEach(s => { s.completed = false; });
+      // Reset carryover flags
+      if (task.carriedOver) {
+        task.carriedOver = false;
+        task.priority = task.originalPriority || task.priority;
+        delete task.carriedFromDay;
+        delete task.carriedDate;
+        delete task.originalPriority;
+      }
+      changed = true;
+    }
+  });
+
+  localStorage.setItem('wtm_weekly_reset', todayStr);
+  if (changed) {
+    saveData();
+    showToast('Recurring tasks reset for the new week ✓');
+  }
+}
+
+
+// ============================================================
+// GLOBAL SEARCH
+// ============================================================
+let searchSelectedIdx = 0;
+let searchResults = [];
+
+function openSearch() {
+  document.getElementById('searchOverlay').classList.add('open');
+  document.getElementById('searchInput').value = '';
+  document.getElementById('searchResults').innerHTML = '';
+  searchResults = [];
+  setTimeout(() => document.getElementById('searchInput').focus(), 50);
+}
+function closeSearch() {
+  document.getElementById('searchOverlay').classList.remove('open');
+}
+
+function highlightMatch(text, query) {
+  if (!query) return escHtml(text);
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escHtml(text).replace(new RegExp('(' + escaped + ')', 'gi'), '<mark>$1</mark>');
+}
+
+function runSearch(query) {
+  const q = query.trim().toLowerCase();
+  searchResults = [];
+  if (!q) { document.getElementById('searchResults').innerHTML = ''; return; }
+
+  // Search active tasks
+  tasks.forEach(task => {
+    const nameMatch = task.name.toLowerCase().includes(q);
+    const noteMatch = (task.notes || '').toLowerCase().includes(q);
+    const subtaskMatch = (task.subtasks || []).some(s => s.name.toLowerCase().includes(q));
+    if (nameMatch || noteMatch || subtaskMatch) {
+      searchResults.push({ type: 'task', item: task, matchNote: noteMatch && !nameMatch, matchSub: subtaskMatch && !nameMatch });
+    }
+  });
+
+  // Search archive
+  archive.forEach(record => {
+    const nameMatch = record.name.toLowerCase().includes(q);
+    const noteMatch = (record.notes || '').toLowerCase().includes(q);
+    if (nameMatch || noteMatch) {
+      searchResults.push({ type: 'archive', item: record, matchNote: noteMatch && !nameMatch });
+    }
+  });
+
+  renderSearchResults(q);
+}
+
+function renderSearchResults(query) {
+  const el = document.getElementById('searchResults');
+  if (!searchResults.length) {
+    el.innerHTML = `<div class="search-empty"><i class="fa-solid fa-magnifying-glass" style="font-size:20px;margin-bottom:8px;display:block"></i>No results for "${escHtml(query)}"</div>`;
+    return;
+  }
+
+  const activeTasks = searchResults.filter(r => r.type === 'task');
+  const archivedTasks = searchResults.filter(r => r.type === 'archive');
+
+  let html = '';
+  if (activeTasks.length) {
+    html += `<div class="search-section-label"><i class="fa-solid fa-list-check" style="margin-right:4px"></i>Active Tasks (${activeTasks.length})</div>`;
+    activeTasks.forEach((r, i) => {
+      const task = r.item;
+      const catColor = task.category === 'Work' ? 'var(--work)' : 'var(--uni)';
+      const priBg = {High:'var(--high-bg)',Medium:'var(--med-bg)',Low:'var(--low-bg)'}[task.priority] || 'var(--bg3)';
+      const priColor = {High:'var(--high)',Medium:'var(--med)',Low:'var(--low)'}[task.priority] || 'var(--text3)';
+      html += `<div class="search-result-item" onclick="goToSearchResult('task','${task.id}')">
+        <div class="search-result-icon" style="background:${priBg};color:${priColor}"><i class="fa-solid fa-check-square"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="search-result-name">${highlightMatch(task.name, query)}</div>
+          ${r.matchNote ? `<div class="search-result-sub">${escHtml((task.notes||'').slice(0,80))}…</div>` : ''}
+          ${r.matchSub ? `<div class="search-result-sub">Match in subtask</div>` : ''}
+        </div>
+        <div class="search-result-meta">${task.day} · ${task.category}</div>
+      </div>`;
+    });
+  }
+
+  if (archivedTasks.length) {
+    html += `<div class="search-section-label"><i class="fa-solid fa-box-archive" style="margin-right:4px"></i>Task Archive (${archivedTasks.length})</div>`;
+    archivedTasks.forEach(r => {
+      const rec = r.item;
+      const dt = rec.completedAt ? new Date(rec.completedAt).toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}) : rec.completedDate || '';
+      html += `<div class="search-result-item" onclick="goToSearchResult('archive','${rec.archivedId}')">
+        <div class="search-result-icon" style="background:var(--low-bg);color:var(--low)"><i class="fa-solid fa-circle-check"></i></div>
+        <div style="flex:1;min-width:0">
+          <div class="search-result-name" style="opacity:0.7;text-decoration:line-through">${highlightMatch(rec.name, query)}</div>
+          ${r.matchNote ? `<div class="search-result-sub">${escHtml((rec.notes||'').slice(0,80))}…</div>` : ''}
+        </div>
+        <div class="search-result-meta">Completed ${dt}</div>
+      </div>`;
+    });
+  }
+
+  el.innerHTML = html;
+}
+
+
+function handleSearchKey(e) {
+  if (e.key === 'Escape') { closeSearch(); return; }
+}
+
+function goToSearchResult(type, id) {
+  closeSearch();
+  if (type === 'task') {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+    // Navigate to the task's day
+    const day = task.day === 'Daily' ? getToday() : task.day;
+    selectDay(day);
+    // Switch to correct category tab
+    activeCatTab = task.category;
+    localStorage.setItem('wtm_cat_tab', task.category);
+    renderContent();
+    // Highlight the card briefly
+    setTimeout(() => {
+      const card = document.getElementById('tc_' + id);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.outline = '2px solid var(--accent)';
+        setTimeout(() => { card.style.outline = ''; }, 2000);
+      }
+    }, 200);
+  } else {
+    selectDay('_archive');
+    setTimeout(() => {
+      archiveExpandedId = id;
+      renderContent();
+      setTimeout(() => {
+        const card = document.getElementById('arc_' + id);
+        if (card) {
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          card.style.outline = '2px solid var(--low)';
+          setTimeout(() => { card.style.outline = ''; }, 2000);
+        }
+      }, 100);
+    }, 100);
+  }
+}
+
+
+// ============================================================
+// SEMESTER PRESETS MODAL
+// ============================================================
+function openSemesterPresetsModal() {
+  closeSettings();
+  // Load saved presets
+  const presets = getSemesterPresets();
+  ['1','2','3','4'].forEach(n => {
+    const inp = document.getElementById('semPresetStart' + n);
+    const inpE = document.getElementById('semPresetEnd' + n);
+    if (inp) inp.value = presets['sem' + n + '_start'] || '';
+    if (inpE) inpE.value = presets['sem' + n + '_end'] || '';
+  });
+  document.getElementById('semPresetsModal').style.display = 'flex';
+}
+
+function closeSemPresetsModal() {
+  document.getElementById('semPresetsModal').style.display = 'none';
+}
+
+function getSemesterPresets() {
+  try { return JSON.parse(localStorage.getItem('wtm_sem_presets') || '{}'); } catch { return {}; }
+}
+
+function saveSemesterPresets() {
+  const presets = {};
+  ['1','2','3','4'].forEach(n => {
+    presets['sem' + n + '_start'] = document.getElementById('semPresetStart' + n).value;
+    presets['sem' + n + '_end']   = document.getElementById('semPresetEnd' + n).value;
+  });
+  localStorage.setItem('wtm_sem_presets', JSON.stringify(presets));
+  closeSemPresetsModal();
+  showToast('Semester dates saved ✓');
+}
+
+function applySemesterPreset(n) {
+  const presets = getSemesterPresets();
+  const start = presets['sem' + n + '_start'];
+  const end   = presets['sem' + n + '_end'];
+  if (!start || !end) { showToast('No dates set for Semester ' + n); return; }
+  setSemesterDates(start, end);
+  closeSemPresetsModal();
+  if (currentDay === '_semester') renderContent();
+  showToast('Semester ' + n + ' dates applied ✓');
+}
+
 // ============================================================
 // FRIDAY AUTO-BACKUP
 // ============================================================
@@ -5209,6 +5546,7 @@ function initApp() {
   try { semesterAssignments = JSON.parse(localStorage.getItem('wtm_semester') || '[]'); } catch { semesterAssignments = []; }
   try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
   restoreTimers();
+  checkWeeklyReset();
   checkCarryover();
   buildSidebar();
   renderContent();
@@ -5447,6 +5785,65 @@ if (isLoggedIn()) {
       placeholder="Add a task for this day…"
       onkeydown="if(event.key==='Enter')addDayTask()">
     <button class="subtask-add-btn" onclick="addDayTask()">+ Add</button>
+  </div>
+</div>
+
+<!-- GLOBAL SEARCH -->
+<div class="search-overlay" id="searchOverlay" onclick="if(event.target===this)closeSearch()">
+  <div class="search-box">
+    <div class="search-input-row">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input class="search-main-input" id="searchInput" type="text"
+        placeholder="Search tasks, archive, notes…"
+        oninput="runSearch(this.value)"
+        onkeydown="handleSearchKey(event)">
+      <span style="font-size:11px;color:var(--text3);white-space:nowrap"><kbd>Esc</kbd> to close</span>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+    <div class="search-footer">
+      <span><kbd>Ctrl</kbd>+<kbd>K</kbd> to open</span>
+      <span>Searches active tasks, notes, subtasks &amp; archive</span>
+    </div>
+  </div>
+</div>
+
+<!-- SEMESTER PRESETS MODAL -->
+<div class="modal-overlay" id="semPresetsModal" style="display:none" onclick="if(event.target===this)closeSemPresetsModal()">
+  <div class="modal" style="width:520px">
+    <div class="modal-title"><i class="fa-solid fa-calendar-days" style="color:var(--uni)"></i> University Semester Dates</div>
+    <p style="font-size:13px;color:var(--text3);margin-bottom:20px;line-height:1.6">Set your semester dates once and apply them instantly. Click <strong style="color:var(--text2)">Apply</strong> to load those dates into the University view.</p>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Semester 1</span>
+      <input class="semester-date-input" id="semPresetStart1" type="date">
+      <span style="color:var(--text3);font-size:12px">→</span>
+      <input class="semester-date-input" id="semPresetEnd1" type="date">
+      <button class="subtask-add-btn" onclick="applySemesterPreset('1')" style="white-space:nowrap;font-size:12px">Apply</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Semester 2</span>
+      <input class="semester-date-input" id="semPresetStart2" type="date">
+      <span style="color:var(--text3);font-size:12px">→</span>
+      <input class="semester-date-input" id="semPresetEnd2" type="date">
+      <button class="subtask-add-btn" onclick="applySemesterPreset('2')" style="white-space:nowrap;font-size:12px">Apply</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Semester 3</span>
+      <input class="semester-date-input" id="semPresetStart3" type="date">
+      <span style="color:var(--text3);font-size:12px">→</span>
+      <input class="semester-date-input" id="semPresetEnd3" type="date">
+      <button class="subtask-add-btn" onclick="applySemesterPreset('3')" style="white-space:nowrap;font-size:12px">Apply</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
+      <span style="font-size:13px;font-weight:700;color:var(--text2);min-width:80px">Semester 4</span>
+      <input class="semester-date-input" id="semPresetStart4" type="date">
+      <span style="color:var(--text3);font-size:12px">→</span>
+      <input class="semester-date-input" id="semPresetEnd4" type="date">
+      <button class="subtask-add-btn" onclick="applySemesterPreset('4')" style="white-space:nowrap;font-size:12px">Apply</button>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeSemPresetsModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveSemesterPresets()"><i class="fa-solid fa-floppy-disk"></i> Save All</button>
+    </div>
   </div>
 </div>
 
