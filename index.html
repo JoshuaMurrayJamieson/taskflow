@@ -3268,7 +3268,7 @@ function renderSubtask(task, s) {
       </div>
       <span class="subtask-name ${s.completed ? 'done' : ''}">${escHtml(s.name)}</span>
       ${s.flagNote ? `<span class="subtask-flag-note">🚩 ${escHtml(s.flagNote)}</span>` : ''}
-      ${hasLists ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:1px 6px;cursor:pointer;flex-shrink:0" onclick="toggleSubtaskLists('${task.id}','${s.id}')" title="${listsOpen?'Collapse':'Expand'} progress lists"><i class="fa-solid fa-list-check" style="font-size:9px;margin-right:3px"></i>${doneItems}/${totalItems} <i class="fa-solid fa-chevron-${listsOpen?'down':'right'}" style="font-size:8px;margin-left:2px"></i></span>` : ''}
+      ${hasLists ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:1px 6px;cursor:pointer;flex-shrink:0" onclick="toggleSubtaskLists('${task.id}','${s.id}')" title="${listsOpen?'Collapse':'Expand'} progress lists"><i class="fa-solid fa-list-check" style="font-size:9px;margin-right:3px"></i>${s.progressLists.length} list${s.progressLists.length>1?'s':''} <i class="fa-solid fa-chevron-${listsOpen?'down':'right'}" style="font-size:8px;margin-left:2px"></i></span>` : ''}
       <div class="subtask-actions">
         <button class="task-act-btn" title="Add progress list" onclick="openProgressListModal('${task.id}','${s.id}')"><i class="fa-solid fa-list-check" style="font-size:11px;color:var(--accent)"></i></button>
         <button class="task-act-btn" title="Edit subtask" onclick="openEditSubtaskModal('${task.id}','${s.id}',event)"><i class="fa-solid fa-pen" style="font-size:11px"></i></button>
@@ -4326,6 +4326,7 @@ document.addEventListener('keydown', e => {
     closeSearch();
     closeSemPresetsModal();
     closeProjModal();
+    closeProjProgListModal();
   }
   if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display !== 'none') {
     if (document.activeElement !== document.getElementById('fName')) return;
@@ -5886,20 +5887,92 @@ function renderProjects(content) {
 
 function renderProjTasksTab(project) {
   const subs = project.subtasks || [];
+
+  function renderProjProgressList(projId, subId, pl) {
+    const total = pl.items ? pl.items.length : 0;
+    const done  = pl.items ? pl.items.filter(i => i.checked).length : 0;
+    const pct   = total ? Math.round((done/total)*100) : 0;
+    const isOpen = pl._open !== false;
+    const dotBar = (pl.items||[]).map(item => {
+      const col = item.customColor || PROG_COLORS[item.colorIdx] || PROG_COLORS[0];
+      return `<div class="prog-dot ${item.checked?'filled':''}" style="${item.checked?`background:${col};border-color:${col}`:`border-color:${col}`}" title="${escHtml(item.label)}"></div>`;
+    }).join('');
+    const itemsHtml = (pl.items||[]).map(item => {
+      const col = item.customColor || PROG_COLORS[item.colorIdx] || PROG_COLORS[0];
+      return `<div class="progress-checkbox-row">
+        <div class="prog-check color-${item.colorIdx} ${item.checked?'checked':''}" style="${item.checked?`background:${col};border-color:${col}`:`border-color:${col}`}"
+          onclick="toggleProjProgItem('${projId}','${subId}','${pl.id}','${item.id}')">
+          ${item.checked?'<i class="fa-solid fa-check"></i>':''}
+        </div>
+        <span class="prog-check-label ${item.checked?'checked':''}">${escHtml(item.label)}</span>
+        <button class="prog-delete-btn" onclick="deleteProjProgItem('${projId}','${subId}','${pl.id}','${item.id}')"><i class="fa-solid fa-xmark"></i></button>
+      </div>`;
+    }).join('');
+    return `<div class="progress-list-card" id="projpl_${pl.id}">
+      <div class="progress-list-header" onclick="toggleProjProgList('${projId}','${subId}','${pl.id}')">
+        <i class="fa-solid fa-chevron-right progress-list-icon ${isOpen?'open':''}"></i>
+        <span class="progress-list-title">${escHtml(pl.name)}</span>
+        ${total ? `<div class="prog-dot-bar">${dotBar}</div>` : ''}
+        <div class="prog-list-actions">
+          <button class="task-act-btn del" onclick="deleteProjProgList('${projId}','${subId}','${pl.id}',event)" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+      <div class="progress-list-body ${isOpen?'open':''}" id="projplb_${pl.id}">
+        ${total ? `<div class="prog-progress-bar"><div class="prog-progress-fill" style="width:${pct}%"></div></div>
+        <div class="prog-progress-text">${done}/${total} complete (${pct}%)</div>` : ''}
+        ${itemsHtml}
+        <div class="prog-add-row">
+          <input class="subtask-input" id="projpli_${pl.id}" type="text" placeholder="Add item label…" style="font-size:12px" onkeydown="if(event.key==='Enter')addProjProgItem('${projId}','${subId}','${pl.id}')">
+          <div class="color-picker-row" id="projplc_${pl.id}">
+            ${PROG_COLORS.map((c,i)=>`<div class="color-swatch ${i===0?'selected':''}" style="background:${c}" data-idx="${i}" onclick="selectProgColor('projplc_${pl.id}',${i},this)" title="${PROG_COLOR_NAMES[i]}"></div>`).join('')}
+          </div>
+          <button class="subtask-add-btn" onclick="addProjProgItem('${projId}','${subId}','${pl.id}')" style="font-size:12px">+ Add</button>
+        </div>
+      </div>
+    </div>`;
+  }
+
   return `
   <div>
-    ${subs.length ? subs.map(s => `
-      <div style="display:flex;align-items:baseline;gap:8px;padding:9px 0 11px;border-bottom:1px solid var(--border)">
-        <div class="subtask-check ${s.completed?'checked':''}" onclick="toggleProjSubtask('${project.id}','${s.id}')">
-          ${s.completed ? '<i class="fa-solid fa-check" style="font-size:8px"></i>' : ''}
+    ${subs.length ? subs.map(s => {
+      const isSection = s.type === 'section';
+      const hasLists  = s.progressLists && s.progressLists.length > 0;
+      const listsOpen = s._listsOpen !== false;
+      const listCount = hasLists ? s.progressLists.length : 0;
+      const isExpanded = s._expanded !== false;
+
+      return `<div style="border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px;overflow:hidden">
+        <!-- Task row -->
+        <div style="display:flex;align-items:baseline;gap:8px;padding:10px 12px 12px;background:var(--bg3);cursor:pointer" onclick="toggleProjItem('${project.id}','${s.id}')">
+          ${!isSection ? `<div class="subtask-check ${s.completed?'checked':''}" onclick="toggleProjSubtask('${project.id}','${s.id}');event.stopPropagation()" style="align-self:center">
+            ${s.completed?'<i class="fa-solid fa-check" style="font-size:8px"></i>':''}
+          </div>` : `<div style="width:16px;height:16px;border-radius:4px;background:var(--border2);display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:center"><i class="fa-solid fa-folder" style="font-size:9px;color:var(--text3)"></i></div>`}
+          <span style="flex:1;font-size:14px;font-weight:${isSection?'800':'600'};color:${isSection?'var(--text)':(s.completed?'var(--text3)':'var(--text)')};text-decoration:${(!isSection&&s.completed)?'line-through':'none'};line-height:1.8;padding-bottom:2px">${escHtml(s.name)}</span>
+          ${hasLists ? `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text3);background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1px 6px;cursor:pointer;flex-shrink:0;align-self:center" onclick="toggleProjItemLists('${project.id}','${s.id}');event.stopPropagation()"><i class="fa-solid fa-list-check" style="font-size:9px;margin-right:3px"></i>${listCount} list${listCount>1?'s':''} <i class="fa-solid fa-chevron-${listsOpen?'down':'right'}" style="font-size:8px"></i></span>` : ''}
+          <div style="display:flex;gap:2px;align-self:center">
+            <button class="task-act-btn" onclick="openProjAddListModal('${project.id}','${s.id}');event.stopPropagation()" title="Add progress list"><i class="fa-solid fa-list-check" style="font-size:10px;color:var(--accent)"></i></button>
+            <button class="task-act-btn del" onclick="deleteProjSubtask('${project.id}','${s.id}');event.stopPropagation()" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          <i class="fa-solid fa-chevron-${isExpanded?'down':'right'}" style="font-size:10px;color:var(--text3);align-self:center;margin-left:2px"></i>
         </div>
-        <span style="flex:1;font-size:14px;font-weight:600;color:${s.completed?'var(--text3)':'var(--text)'};text-decoration:${s.completed?'line-through':'none'};line-height:1.8;padding-bottom:2px">${escHtml(s.name)}</span>
-        <button class="task-act-btn del" onclick="deleteProjSubtask('${project.id}','${s.id}')" style="font-size:11px;align-self:center"><i class="fa-solid fa-trash"></i></button>
-      </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:16px 0">No subtasks yet.</div>`}
-    <div style="display:flex;gap:8px;margin-top:12px">
+        <!-- Notes area (expanded) -->
+        ${isExpanded ? `<div style="padding:10px 12px;border-top:1px solid var(--border);background:var(--bg2)">
+          <textarea style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);resize:none;outline:none;min-height:50px;line-height:1.7;transition:border-color var(--transition)" placeholder="Notes for this item…" oninput="saveProjItemNote('${project.id}','${s.id}',this.value)" onblur="saveProjItemNote('${project.id}','${s.id}',this.value)">${escHtml(s.notes||'')}</textarea>
+        </div>` : ''}
+        <!-- Progress lists -->
+        ${hasLists && listsOpen ? `<div class="progress-section" style="margin-left:0;border-left:none;border-top:1px solid var(--border)">${s.progressLists.map(pl => renderProjProgressList(project.id, s.id, pl)).join('')}</div>` : ''}
+      </div>`;
+    }).join('') : `<div style="color:var(--text3);font-size:13px;padding:16px 0">No items yet.</div>`}
+
+    <!-- Add row with type toggle -->
+    <div style="display:flex;gap:6px;margin-top:12px;align-items:center">
       <input class="subtask-input" id="projSubInput_${project.id}" type="text"
-        placeholder="Add a subtask…" style="flex:1"
+        placeholder="Add item…" style="flex:1"
         onkeydown="if(event.key==='Enter')addProjSubtask('${project.id}')">
+      <select id="projSubType_${project.id}" class="form-select" style="width:120px;font-size:12px;padding:6px 8px">
+        <option value="checkbox">☑ Checkbox</option>
+        <option value="section">📁 Section</option>
+      </select>
       <button class="subtask-add-btn" onclick="addProjSubtask('${project.id}')">+ Add</button>
     </div>
   </div>`;
@@ -6078,12 +6151,14 @@ function deleteProject(id, e) {
 // ── SUBTASKS ──────────────────────────────────────────────────
 function addProjSubtask(projectId) {
   const inp = document.getElementById('projSubInput_' + projectId);
+  const typeSel = document.getElementById('projSubType_' + projectId);
   if (!inp) return;
   const name = inp.value.trim(); if (!name) return;
+  const type = typeSel ? typeSel.value : 'checkbox';
   const p = projects.find(pr => pr.id === projectId);
   if (!p) return;
   if (!p.subtasks) p.subtasks = [];
-  p.subtasks.push({ id: uid(), name, completed: false });
+  p.subtasks.push({ id: uid(), name, type, completed: false, notes: '', progressLists: [], _expanded: false, _listsOpen: true });
   inp.value = '';
   saveProjects(); renderContent();
 }
@@ -6091,12 +6166,113 @@ function toggleProjSubtask(projectId, subId) {
   const p = projects.find(pr => pr.id === projectId);
   if (!p) return;
   const s = (p.subtasks||[]).find(s => s.id === subId);
-  if (s) { s.completed = !s.completed; saveProjects(); renderContent(); }
+  if (s && s.type !== 'section') { s.completed = !s.completed; saveProjects(); renderContent(); }
+}
+function toggleProjItem(projectId, subId) {
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (s) { s._expanded = !s._expanded; saveProjects(); renderContent(); }
+}
+function toggleProjItemLists(projectId, subId) {
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (s) { s._listsOpen = s._listsOpen === false ? true : false; saveProjects(); renderContent(); }
+}
+function saveProjItemNote(projectId, subId, val) {
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (s) { s.notes = val; saveProjects(); }
 }
 function deleteProjSubtask(projectId, subId) {
   const p = projects.find(pr => pr.id === projectId);
   if (!p) return;
   p.subtasks = (p.subtasks||[]).filter(s => s.id !== subId);
+  saveProjects(); renderContent();
+}
+
+// Project progress lists
+let projProgListTarget = null;
+function openProjAddListModal(projectId, subId) {
+  projProgListTarget = { projectId, subId };
+  document.getElementById('projProgListName').value = '';
+  document.getElementById('projProgListDesc').value = '';
+  document.getElementById('projProgListModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('projProgListName').focus(), 50);
+}
+function closeProjProgListModal() {
+  document.getElementById('projProgListModal').style.display = 'none';
+  projProgListTarget = null;
+}
+function saveProjProgList() {
+  const name = document.getElementById('projProgListName').value.trim();
+  if (!name) { document.getElementById('projProgListName').focus(); return; }
+  const desc = document.getElementById('projProgListDesc').value.trim() || null;
+  if (!projProgListTarget) return;
+  const { projectId, subId } = projProgListTarget;
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (!s) return;
+  if (!s.progressLists) s.progressLists = [];
+  s.progressLists.push({ id: uid(), name, description: desc, items: [], _open: true });
+  saveProjects(); closeProjProgListModal(); renderContent();
+  showToast('Progress list added ✓');
+}
+function toggleProjProgList(projectId, subId, plId) {
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (!s) return;
+  const pl = (s.progressLists||[]).find(pl => pl.id === plId);
+  if (pl) { pl._open = !pl._open; saveProjects(); renderContent(); }
+}
+function deleteProjProgList(projectId, subId, plId, e) {
+  if (e) e.stopPropagation();
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (!s) return;
+  s.progressLists = (s.progressLists||[]).filter(pl => pl.id !== plId);
+  saveProjects(); renderContent();
+}
+function addProjProgItem(projectId, subId, plId) {
+  const inp = document.getElementById('projpli_' + plId);
+  if (!inp) return;
+  const label = inp.value.trim(); if (!label) return;
+  const colRow = document.getElementById('projplc_' + plId);
+  const selSwatch = colRow ? colRow.querySelector('.color-swatch.selected') : null;
+  const colorIdx = selSwatch ? parseInt(selSwatch.dataset.idx) : 0;
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (!s) return;
+  const pl = (s.progressLists||[]).find(pl => pl.id === plId);
+  if (!pl) return;
+  pl.items.push({ id: uid(), label, colorIdx, customColor: PROG_COLORS[colorIdx], checked: false });
+  inp.value = '';
+  saveProjects(); renderContent();
+}
+function toggleProjProgItem(projectId, subId, plId, itemId) {
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (!s) return;
+  const pl = (s.progressLists||[]).find(pl => pl.id === plId);
+  if (!pl) return;
+  const item = (pl.items||[]).find(i => i.id === itemId);
+  if (item) { item.checked = !item.checked; saveProjects(); renderContent(); }
+}
+function deleteProjProgItem(projectId, subId, plId, itemId) {
+  const p = projects.find(pr => pr.id === projectId);
+  if (!p) return;
+  const s = (p.subtasks||[]).find(s => s.id === subId);
+  if (!s) return;
+  const pl = (s.progressLists||[]).find(pl => pl.id === plId);
+  if (!pl) return;
+  pl.items = (pl.items||[]).filter(i => i.id !== itemId);
   saveProjects(); renderContent();
 }
 
@@ -6462,7 +6638,27 @@ if (isLoggedIn()) {
   </div>
 </div>
 
+<!-- PROJECT PROGRESS LIST MODAL -->
+<div class="modal-overlay" id="projProgListModal" style="display:none" onclick="if(event.target===this)closeProjProgListModal()">
+  <div class="modal" style="width:420px">
+    <div class="modal-title"><i class="fa-solid fa-list-check" style="color:var(--accent)"></i> Add Progress List</div>
+    <div class="form-group">
+      <label class="form-label">List Name</label>
+      <input class="form-input" id="projProgListName" type="text" placeholder="e.g. Review Steps" onkeydown="if(event.key==='Enter')saveProjProgList()">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description (optional)</label>
+      <input class="form-input" id="projProgListDesc" type="text" placeholder="Brief description…">
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeProjProgListModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveProjProgList()">Add List</button>
+    </div>
+  </div>
+</div>
+
 <!-- PROJECT MODAL -->
+
 <div class="modal-overlay" id="projModal" style="display:none" onclick="if(event.target===this)closeProjModal()">
   <div class="modal" style="width:480px">
     <div class="modal-title" id="projModalTitle"><i class="fa-solid fa-diagram-project" style="color:var(--med)"></i> New Project</div>
