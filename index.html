@@ -4752,6 +4752,7 @@ document.addEventListener('keydown', e => {
     closeBillModal();
     closeAllocModal();
     closeTransModal();
+    closeSavingsModal();
   }
   if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display !== 'none') {
     if (document.activeElement !== document.getElementById('fName')) return;
@@ -6900,9 +6901,11 @@ function deleteTemplate(id) {
 // BUDGET APP
 // ============================================================
 let budgetData = {
-  fortnightStartDay: 1,       // day of month pay starts (1 or 15 etc)
-  incomes: [],                // [{id, name, amount, dayOfFortnight, color}]
-  bills: [],                  // [{id, name, amount, dayOfMonth, category, color, recurring}]
+  fortnightStartDay: 1,
+  currentBalance: 0,          // current bank balance
+  incomes: [],                // [{id, name, amount, color}]
+  bills: [],                  // [{id, name, amount, type:'fixed'|'variable', dayOfMonth, category, color}]
+  savingsGoals: [],           // [{id, name, target, current, contribution, color}]
   allocations: [],            // [{id, name, percent, color}]
   transactions: []            // [{id, date, name, amount, type:'income'|'expense', category}]
 };
@@ -6946,7 +6949,14 @@ function getTotalIncome() {
   return budgetData.incomes.reduce((a,i) => a + (parseFloat(i.amount)||0), 0);
 }
 function getTotalBills() {
-  return budgetData.bills.filter(b=>b.recurring!==false).reduce((a,b) => a + (parseFloat(b.amount)||0), 0);
+  // Fixed bills only (variable/envelope spending tracked separately)
+  return budgetData.bills.filter(b=>b.type!=='variable').reduce((a,b) => a + (parseFloat(b.amount)||0), 0);
+}
+function getTotalVariable() {
+  return budgetData.bills.filter(b=>b.type==='variable').reduce((a,b) => a + (parseFloat(b.amount)||0), 0);
+}
+function getTotalSavingsContrib() {
+  return (budgetData.savingsGoals||[]).reduce((a,g) => a + (parseFloat(g.contribution)||0), 0);
 }
 function getFortnightDates() {
   const today = new Date();
@@ -6996,6 +7006,7 @@ function renderBudget() {
   if (budgetTab === 'overview') tabHtml = renderBudgetOverview(totalIncome, totalBills, leftover, pct);
   else if (budgetTab === 'bills') tabHtml = renderBudgetBills();
   else if (budgetTab === 'allocations') tabHtml = renderBudgetAllocations(totalIncome, leftover);
+  else if (budgetTab === 'savings') tabHtml = renderBudgetSavings(leftover);
   else if (budgetTab === 'history') tabHtml = renderBudgetHistory();
   body.innerHTML = `<div class="budget-content">${tabHtml}</div>`;
 
@@ -7010,30 +7021,63 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
   const color = leftover >= 0 ? 'var(--low)' : 'var(--high)';
   const barColor = pct > 90 ? '#f05d5d' : pct > 70 ? '#f0b84d' : '#4dcf8e';
 
+  const totalVariable = getTotalVariable();
+  const totalSavingsC = getTotalSavingsContrib();
+  const trueLeftover  = leftover - totalVariable - totalSavingsC;
+  const trueColor     = trueLeftover >= 0 ? 'var(--low)' : 'var(--high)';
+
   return `
+  <!-- Balance bar -->
+  <div class="budget-card" style="border-left:3px solid var(--accent)">
+    <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+      <div>
+        <div class="budget-card-label">Current Balance</div>
+        <div class="budget-card-value" style="color:var(--accent)">${fmtAUD(budgetData.currentBalance||0)}</div>
+      </div>
+      <div style="flex:1;min-width:200px">
+        <input type="number" step="0.01" value="${budgetData.currentBalance||0}"
+          style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--text);outline:none;width:180px;transition:border-color 0.18s"
+          onchange="budgetData.currentBalance=parseFloat(this.value)||0;saveBudget();renderBudget()"
+          onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
+          placeholder="Enter current balance">
+        <span style="font-size:11px;color:var(--text3);margin-left:8px">Update anytime</span>
+      </div>
+    </div>
+  </div>
+
   <div class="budget-summary-grid">
     <div class="budget-card" style="border-left:3px solid var(--low)">
       <div class="budget-card-label">Fortnightly Income</div>
       <div class="budget-card-value" style="color:var(--low)">${fmtAUD(totalIncome)}</div>
-      <div class="budget-card-sub">${budgetData.incomes.length} income source${budgetData.incomes.length!==1?'s':''}</div>
+      <div class="budget-card-sub">${budgetData.incomes.length} source${budgetData.incomes.length!==1?'s':''}</div>
     </div>
     <div class="budget-card" style="border-left:3px solid var(--high)">
-      <div class="budget-card-label">Fortnightly Bills</div>
+      <div class="budget-card-label">Fixed Bills</div>
       <div class="budget-card-value" style="color:var(--high)">${fmtAUD(totalBills)}</div>
       <div class="budget-progress-wrap"><div class="budget-progress-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div></div>
-      <div class="budget-card-sub">${pct}% of income · ${budgetData.bills.length} bill${budgetData.bills.length!==1?'s':''}</div>
+      <div class="budget-card-sub">${pct}% of income</div>
     </div>
-    <div class="budget-card" style="border-left:3px solid ${color}">
-      <div class="budget-card-label">Left Over</div>
-      <div class="budget-card-value" style="color:${color}">${leftover >= 0 ? '' : '-'}${fmtAUD(leftover)}</div>
-      <div class="budget-card-sub">after all bills</div>
+    <div class="budget-card" style="border-left:3px solid var(--med)">
+      <div class="budget-card-label">Variable Spend</div>
+      <div class="budget-card-value" style="color:var(--med)">${fmtAUD(totalVariable)}</div>
+      <div class="budget-card-sub">groceries, petrol etc</div>
     </div>
     <div class="budget-card" style="border-left:3px solid var(--accent)">
-      <div class="budget-card-label">Next Bill Due</div>
-      ${upcoming.length ? `
-        <div class="budget-card-value" style="font-size:18px;color:${upcoming[0].daysUntil===0?'var(--high)':upcoming[0].daysUntil<=3?'var(--med)':'var(--text)'}">${upcoming[0].name}</div>
-        <div class="budget-card-sub">${upcoming[0].daysUntil===0?'Due today':upcoming[0].daysUntil===1?'Tomorrow':'In '+upcoming[0].daysUntil+' days'} · ${fmtAUD(upcoming[0].amount)}</div>
-      ` : `<div class="budget-card-value" style="font-size:16px;color:var(--text3)">No bills set</div>`}
+      <div class="budget-card-label">Savings</div>
+      <div class="budget-card-value" style="color:var(--accent)">${fmtAUD(totalSavingsC)}</div>
+      <div class="budget-card-sub">${(budgetData.savingsGoals||[]).length} goal${(budgetData.savingsGoals||[]).length!==1?'s':''}</div>
+    </div>
+    <div class="budget-card" style="border-left:3px solid ${trueColor};grid-column:span 4 / auto">
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+        <div>
+          <div class="budget-card-label">True Leftover (spending money)</div>
+          <div class="budget-card-value" style="color:${trueColor}">${trueLeftover>=0?'':'-'}${fmtAUD(trueLeftover)}</div>
+          <div class="budget-card-sub">after bills + variable + savings</div>
+        </div>
+        <div class="budget-progress-wrap" style="flex:1;min-width:200px;height:10px;margin-top:0">
+          <div class="budget-progress-fill" style="width:${Math.min(Math.round((totalBills+totalVariable+totalSavingsC)/totalIncome*100)||0,100)}%;background:${barColor};height:10px"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -7072,22 +7116,34 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
 }
 
 function renderBudgetBills() {
-  const upcoming = getUpcomingBills(60);
   const calHtml = renderBillsCalendar();
+  const fixed    = budgetData.bills.filter(b => b.type !== 'variable');
+  const variable = budgetData.bills.filter(b => b.type === 'variable');
   return `
   <div class="budget-two-col">
     <div>
-      <div class="budget-section-title"><i class="fa-solid fa-receipt" style="color:var(--high)"></i> All Bills</div>
-      ${budgetData.bills.length ? budgetData.bills.map(b => `
-        <div class="bill-item">
-          <span class="bill-due-badge" style="background:var(--bg3);color:var(--text3)">Day ${b.dayOfMonth}</span>
+      <div class="budget-section-title"><i class="fa-solid fa-calendar-check" style="color:var(--high)"></i> Fixed Bills <span style="font-size:11px;color:var(--text3);font-weight:400">(have a due date)</span></div>
+      ${fixed.length ? fixed.map(b => `
+        <div class="bill-item ${b.dayOfMonth?'':''}">
+          <span class="bill-due-badge" style="background:var(--high-bg);color:var(--high)">Day ${b.dayOfMonth||'?'}</span>
           <span class="bill-name">${escHtml(b.name)}</span>
           ${b.category ? `<span class="bill-category">${escHtml(b.category)}</span>` : ''}
           <span class="bill-amount">-${fmtAUD(b.amount)}</span>
           <button class="task-act-btn" onclick="editBill('${b.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
           <button class="task-act-btn del" onclick="deleteBill('${b.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
-        </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:12px 0">No bills added yet.</div>`}
-      <button class="budget-add-btn" onclick="openBillModal()"><i class="fa-solid fa-plus"></i> Add Bill</button>
+        </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:8px 0">No fixed bills yet.</div>`}
+
+      <div class="budget-section-title" style="margin-top:16px"><i class="fa-solid fa-basket-shopping" style="color:var(--med)"></i> Variable Spend <span style="font-size:11px;color:var(--text3);font-weight:400">(envelope budgets)</span></div>
+      ${variable.length ? variable.map(b => `
+        <div class="bill-item">
+          <span class="bill-due-badge" style="background:var(--med-bg);color:var(--med)">Variable</span>
+          <span class="bill-name">${escHtml(b.name)}</span>
+          ${b.category ? `<span class="bill-category">${escHtml(b.category)}</span>` : ''}
+          <span class="bill-amount" style="color:var(--med)">-${fmtAUD(b.amount)}</span>
+          <button class="task-act-btn" onclick="editBill('${b.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
+          <button class="task-act-btn del" onclick="deleteBill('${b.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+        </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:8px 0">No variable envelopes yet.</div>`}
+      <button class="budget-add-btn" onclick="openBillModal()"><i class="fa-solid fa-plus"></i> Add Bill / Envelope</button>
     </div>
     <div>${calHtml}</div>
   </div>`;
@@ -7176,6 +7232,50 @@ function renderBudgetAllocations(totalIncome, leftover) {
       ${totalPct > 100 ? `<div style="font-size:12px;color:var(--high);margin-top:8px">⚠ Over-allocated by ${totalPct-100}%</div>` : ''}
     </div>
     <button class="budget-add-btn" onclick="openAllocModal()"><i class="fa-solid fa-plus"></i> Add Allocation</button>
+  </div>`;
+}
+
+
+function renderBudgetSavings(leftover) {
+  const goals = budgetData.savingsGoals || [];
+  const totalContrib = getTotalSavingsContrib();
+  return `
+  <div>
+    <div class="budget-section-title"><i class="fa-solid fa-piggy-bank" style="color:var(--accent)"></i> Savings Goals</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Total saving per fortnight</div>
+      <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent)">${fmtAUD(totalContrib)}</div>
+    </div>
+    ${goals.length ? goals.map(g => {
+      const pct = g.target > 0 ? Math.min(Math.round((g.current/g.target)*100),100) : 0;
+      const remaining = Math.max((g.target||0)-(g.current||0), 0);
+      const fortnightsLeft = g.contribution > 0 ? Math.ceil(remaining/g.contribution) : '∞';
+      const color = g.color || 'var(--accent)';
+      return `<div class="budget-card" style="border-left:3px solid ${color};margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700;color:var(--text);line-height:1.5">${escHtml(g.name)}</div>
+            <div style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">
+              ${fmtAUD(g.current||0)} of ${fmtAUD(g.target||0)} · ${fmtAUD(g.contribution||0)}/fortnight · ${fortnightsLeft} fortnights left
+            </div>
+          </div>
+          <div style="font-size:20px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${color}">${pct}%</div>
+          <button class="task-act-btn" onclick="editSavingsGoal('${g.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
+          <button class="task-act-btn del" onclick="deleteSavingsGoal('${g.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+        </div>
+        <div class="budget-progress-wrap" style="height:8px">
+          <div class="budget-progress-fill" style="width:${pct}%;background:${color};height:8px"></div>
+        </div>
+        <!-- Quick add to savings -->
+        <div style="display:flex;gap:6px;margin-top:10px;align-items:center">
+          <input type="number" step="0.01" placeholder="Add amount…" id="savingsAdd_${g.id}"
+            style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-family:'Inter',sans-serif;font-size:12px;color:var(--text);outline:none"
+            onkeydown="if(event.key==='Enter')addToSavings('${g.id}')">
+          <button class="subtask-add-btn" onclick="addToSavings('${g.id}')" style="font-size:12px;white-space:nowrap">+ Add</button>
+        </div>
+      </div>`;
+    }).join('') : `<div style="color:var(--text3);font-size:13px;padding:16px 0">No savings goals yet. Add one below.</div>`}
+    <button class="budget-add-btn" onclick="openSavingsModal()"><i class="fa-solid fa-plus"></i> Add Savings Goal</button>
   </div>`;
 }
 
@@ -7330,6 +7430,24 @@ function deleteIncome(id) {
 }
 
 // Bills
+
+let currentBillType = 'fixed';
+function setBillType(type) {
+  currentBillType = type;
+  const fixedBtn = document.getElementById('billTypeFixed');
+  const varBtn   = document.getElementById('billTypeVariable');
+  const dayGroup = document.getElementById('billDayGroup');
+  if (type === 'fixed') {
+    fixedBtn.style.background='var(--high-bg)'; fixedBtn.style.borderColor='var(--high)'; fixedBtn.style.color='var(--high)';
+    varBtn.style.background='var(--bg3)'; varBtn.style.borderColor='var(--border)'; varBtn.style.color='var(--text3)';
+    if (dayGroup) dayGroup.style.display='block';
+  } else {
+    varBtn.style.background='var(--med-bg)'; varBtn.style.borderColor='var(--med)'; varBtn.style.color='var(--med)';
+    fixedBtn.style.background='var(--bg3)'; fixedBtn.style.borderColor='var(--border)'; fixedBtn.style.color='var(--text3)';
+    if (dayGroup) dayGroup.style.display='none';
+  }
+}
+
 function openBillModal(id) {
   currentBillEdit=id||null;
   const b=id?budgetData.bills.find(b=>b.id===id):null;
@@ -7338,7 +7456,7 @@ function openBillModal(id) {
   document.getElementById('billAmount').value  =b?.amount||'';
   document.getElementById('billDay').value     =b?.dayOfMonth||'1';
   document.getElementById('billCategory').value=b?.category||'';
-  setTimeout(()=>document.getElementById('billName').focus(),50);
+  setTimeout(()=>{ setBillType(b?.type||'fixed'); document.getElementById('billName').focus(); },50);
 }
 function closeBillModal(){document.getElementById('budgetBillModal').style.display='none';}
 function editBill(id){openBillModal(id);}
@@ -7347,12 +7465,13 @@ function saveBill(){
   const amount=document.getElementById('billAmount').value;
   const day=document.getElementById('billDay').value;
   const category=document.getElementById('billCategory').value.trim();
+  const type=currentBillType||'fixed';
   if(!name||!amount){showToast('Fill in all fields');return;}
   if(currentBillEdit){
     const b=budgetData.bills.find(b=>b.id===currentBillEdit);
-    if(b){b.name=name;b.amount=parseFloat(amount);b.dayOfMonth=parseInt(day);b.category=category;}
+    if(b){b.name=name;b.amount=parseFloat(amount);b.dayOfMonth=type==='fixed'?parseInt(day):null;b.category=category;b.type=type;}
   } else {
-    budgetData.bills.push({id:uid(),name,amount:parseFloat(amount),dayOfMonth:parseInt(day),category,recurring:true});
+    budgetData.bills.push({id:uid(),name,amount:parseFloat(amount),dayOfMonth:type==='fixed'?parseInt(day):null,category,type});
   }
   saveBudget();closeBillModal();renderBudget();showToast('Bill saved ✓');
 }
@@ -7391,6 +7510,57 @@ function deleteAlloc(id){
   if(!confirm('Delete this allocation?'))return;
   budgetData.allocations=budgetData.allocations.filter(a=>a.id!==id);
   saveBudget();renderBudget();
+}
+
+
+// Savings Goals
+let currentSavingsEdit = null;
+function openSavingsModal(id) {
+  currentSavingsEdit = id || null;
+  const g = id ? (budgetData.savingsGoals||[]).find(g=>g.id===id) : null;
+  document.getElementById('budgetSavingsModal').style.display = 'flex';
+  document.getElementById('savingsName').value        = g?.name||'';
+  document.getElementById('savingsTarget').value      = g?.target||'';
+  document.getElementById('savingsCurrent').value     = g?.current||'0';
+  document.getElementById('savingsContrib').value     = g?.contribution||'';
+  document.getElementById('savingsColor').value       = g?.color||'#4f8ef7';
+  setTimeout(()=>document.getElementById('savingsName').focus(),50);
+}
+function closeSavingsModal() { document.getElementById('budgetSavingsModal').style.display='none'; }
+function editSavingsGoal(id) { openSavingsModal(id); }
+function saveSavingsGoal() {
+  const name = document.getElementById('savingsName').value.trim();
+  const target = parseFloat(document.getElementById('savingsTarget').value)||0;
+  const current = parseFloat(document.getElementById('savingsCurrent').value)||0;
+  const contribution = parseFloat(document.getElementById('savingsContrib').value)||0;
+  const color = document.getElementById('savingsColor').value;
+  if (!name) { document.getElementById('savingsName').focus(); return; }
+  if (!budgetData.savingsGoals) budgetData.savingsGoals = [];
+  if (currentSavingsEdit) {
+    const g = budgetData.savingsGoals.find(g=>g.id===currentSavingsEdit);
+    if (g) { g.name=name; g.target=target; g.current=current; g.contribution=contribution; g.color=color; }
+  } else {
+    budgetData.savingsGoals.push({id:uid(),name,target,current,contribution,color});
+  }
+  saveBudget(); closeSavingsModal(); renderBudget(); showToast('Savings goal saved ✓');
+}
+function deleteSavingsGoal(id) {
+  if (!confirm('Delete this savings goal?')) return;
+  budgetData.savingsGoals = (budgetData.savingsGoals||[]).filter(g=>g.id!==id);
+  saveBudget(); renderBudget();
+}
+function addToSavings(goalId) {
+  const inp = document.getElementById('savingsAdd_' + goalId);
+  if (!inp) return;
+  const amount = parseFloat(inp.value);
+  if (!amount || amount <= 0) return;
+  const g = (budgetData.savingsGoals||[]).find(g=>g.id===goalId);
+  if (!g) return;
+  g.current = (g.current||0) + amount;
+  inp.value = '';
+  // Log as transaction
+  budgetData.transactions.push({id:uid(),name:'Savings: '+g.name,amount,date:getTodayDate(),type:'expense',category:'Savings'});
+  saveBudget(); renderBudget(); showToast(fmtAUD(amount) + ' added to ' + g.name + ' ✓');
 }
 
 // Transactions
@@ -7865,6 +8035,7 @@ if (isLoggedIn()) {
       <button class="budget-nav-btn active" id="bnav-overview" onclick="setBudgetTab('overview');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-gauge" style="margin-right:4px"></i>Overview</button>
       <button class="budget-nav-btn" id="bnav-bills" onclick="setBudgetTab('bills');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-receipt" style="margin-right:4px"></i>Bills</button>
       <button class="budget-nav-btn" id="bnav-allocations" onclick="setBudgetTab('allocations');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-chart-pie" style="margin-right:4px"></i>Allocations</button>
+      <button class="budget-nav-btn" id="bnav-savings" onclick="setBudgetTab('savings');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-piggy-bank" style="margin-right:4px"></i>Savings</button>
       <button class="budget-nav-btn" id="bnav-history" onclick="setBudgetTab('history');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-clock-rotate-left" style="margin-right:4px"></i>History</button>
     </div>
     <button class="icon-btn" onclick="closeBudget()" title="Close Budget"><i class="fa-solid fa-xmark"></i></button>
@@ -7887,15 +8058,39 @@ if (isLoggedIn()) {
 
 <!-- BILL MODAL -->
 <div class="modal-overlay" id="budgetBillModal" style="display:none" onclick="if(event.target===this)closeBillModal()">
-  <div class="modal" style="width:420px">
+  <div class="modal" style="width:440px">
     <div class="modal-title"><i class="fa-solid fa-receipt" style="color:var(--high)"></i> Bill / Expense</div>
-    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="billName" type="text" placeholder="e.g. Rent, Netflix, Phone" onkeydown="if(event.key==='Enter')saveBill()"></div>
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <div style="display:flex;gap:6px;margin-top:4px">
+        <button id="billTypeFixed" class="subtask-add-btn" style="flex:1;background:var(--high-bg);border-color:var(--high);color:var(--high)" onclick="setBillType('fixed')">📅 Fixed Date</button>
+        <button id="billTypeVariable" class="subtask-add-btn" style="flex:1;background:var(--bg3);border-color:var(--border);color:var(--text3)" onclick="setBillType('variable')">🛒 Variable / Envelope</button>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="billName" type="text" placeholder="e.g. Rent, Groceries, Netflix" onkeydown="if(event.key==='Enter')saveBill()"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Amount (AUD)</label><input class="form-input" id="billAmount" type="number" step="0.01" placeholder="0.00"></div>
-      <div class="form-group"><label class="form-label">Day of Month</label><input class="form-input" id="billDay" type="number" min="1" max="31" value="1" placeholder="1-31"></div>
+      <div class="form-group" id="billDayGroup"><label class="form-label">Day of Month</label><input class="form-input" id="billDay" type="number" min="1" max="31" value="1" placeholder="1-31"></div>
     </div>
-    <div class="form-group"><label class="form-label">Category (optional)</label><input class="form-input" id="billCategory" type="text" placeholder="e.g. Housing, Subscriptions, Transport"></div>
+    <div class="form-group"><label class="form-label">Category (optional)</label><input class="form-input" id="billCategory" type="text" placeholder="e.g. Housing, Subscriptions, Food"></div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeBillModal()">Cancel</button><button class="btn-primary" onclick="saveBill()">Save</button></div>
+  </div>
+</div>
+
+<!-- SAVINGS GOAL MODAL -->
+<div class="modal-overlay" id="budgetSavingsModal" style="display:none" onclick="if(event.target===this)closeSavingsModal()">
+  <div class="modal" style="width:440px">
+    <div class="modal-title"><i class="fa-solid fa-piggy-bank" style="color:var(--accent)"></i> Savings Goal</div>
+    <div class="form-group"><label class="form-label">Goal Name</label><input class="form-input" id="savingsName" type="text" placeholder="e.g. Holiday Fund, Emergency, New Car" onkeydown="if(event.key==='Enter')saveSavingsGoal()"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Target Amount</label><input class="form-input" id="savingsTarget" type="number" step="0.01" placeholder="e.g. 2000"></div>
+      <div class="form-group"><label class="form-label">Current Amount</label><input class="form-input" id="savingsCurrent" type="number" step="0.01" value="0" placeholder="0.00"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Contribution / Fortnight</label><input class="form-input" id="savingsContrib" type="number" step="0.01" placeholder="e.g. 100"></div>
+      <div class="form-group"><label class="form-label">Colour</label><input class="form-input" id="savingsColor" type="color" value="#4f8ef7" style="height:42px;cursor:pointer;padding:2px 6px"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeSavingsModal()">Cancel</button><button class="btn-primary" onclick="saveSavingsGoal()">Save Goal</button></div>
   </div>
 </div>
 
