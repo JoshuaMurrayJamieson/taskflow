@@ -1787,8 +1787,10 @@
     white-space: nowrap;
   }
   .gantt-header-row th.today-col {
-    background: rgba(79,142,247,0.12);
+    background: rgba(79,142,247,0.25);
     color: var(--accent);
+    font-weight: 800;
+    box-shadow: inset 0 -2px 0 var(--accent);
   }
   .gantt-header-label { width: 180px; min-width: 180px; text-align: left !important; padding: 8px 12px !important; position: sticky; left: 0; z-index: 6; background: var(--bg3); }
   .gantt-day-header { width: 28px; min-width: 28px; padding: 6px 2px !important; }
@@ -1810,7 +1812,7 @@
     height: 38px;
     vertical-align: middle;
   }
-  .gantt-assignment-row td.today-col { background: rgba(79,142,247,0.05); }
+  .gantt-assignment-row td.today-col { background: rgba(79,142,247,0.10); box-shadow: inset 1px 0 0 rgba(79,142,247,0.3), inset -1px 0 0 rgba(79,142,247,0.3); }
   .gantt-assignment-row td.weekend-col { background: rgba(255,255,255,0.01); }
   .gantt-label-cell {
     padding: 6px 10px !important;
@@ -2714,6 +2716,7 @@ async function loadData() {
   try { projects = JSON.parse(localStorage.getItem('wtm_projects') || '[]'); } catch { projects = []; }
   try { progTemplates = JSON.parse(localStorage.getItem('wtm_prog_templates') || '[]'); } catch { progTemplates = []; }
   const localTasks = [...tasks];
+  const localLastPush = localStorage.getItem('wtm_last_push') || '0';
 
   // Then try to sync with cloud
   setSyncStatus('syncing', 'Loading…');
@@ -2724,38 +2727,50 @@ async function loadData() {
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
-    const cloudTasks    = data.tasks || [];
-    const cloudArchive  = data.archive || [];
-    const cloudSemester = data.semester || [];
-    const cloudCourses   = data.courses  || [];
-    const cloudProjects   = data.projects  || [];
-    const cloudTemplates  = data.templates  || [];
+    const cloudTasks     = data.tasks      || [];
+    const cloudArchive   = data.archive    || [];
+    const cloudSemester  = data.semester   || [];
+    const cloudCourses   = data.courses    || [];
+    const cloudProjects  = data.projects   || [];
+    const cloudTemplates = data.templates  || [];
     const cloudSemPresets = data.semPresets || {};
     const cloudSemStart   = data.semStart   || '';
     const cloudSemEnd     = data.semEnd     || '';
+    const cloudUpdatedAt  = data.updatedAt  || '0';
 
     const localSemester = [...semesterAssignments];
+
     if (cloudTasks.length === 0 && (localTasks.length > 0 || localSemester.length > 0)) {
-      // Cloud is empty but we have local data — push local up to cloud
+      // Cloud is empty — push local up
       setSyncStatus('syncing', 'First sync…');
       tasks = localTasks;
-      await pushToCloud(); // pushToCloud already includes semesterAssignments
+      await pushToCloud();
       setSyncStatus('ok', 'Uploaded to cloud');
     } else if (cloudTasks.length > 0) {
-      // Cloud has data — use it as source of truth
-      tasks = cloudTasks;
-      localStorage.setItem('wtm_tasks', JSON.stringify(tasks));
-      if (cloudArchive.length > 0) { archive = cloudArchive; localStorage.setItem('wtm_archive', JSON.stringify(archive)); }
-      if (cloudSemester.length > 0) { semesterAssignments = cloudSemester; localStorage.setItem('wtm_semester', JSON.stringify(semesterAssignments)); }
-      if (cloudCourses.length > 0) { semesterCourses = cloudCourses; localStorage.setItem('wtm_courses', JSON.stringify(semesterCourses)); }
-      if (cloudProjects.length > 0) { projects = cloudProjects; localStorage.setItem('wtm_projects', JSON.stringify(projects)); }
-      if (cloudTemplates.length > 0) { progTemplates = cloudTemplates; localStorage.setItem('wtm_prog_templates', JSON.stringify(progTemplates)); }
-      if (Object.keys(cloudSemPresets).length > 0) { localStorage.setItem('wtm_sem_presets', JSON.stringify(cloudSemPresets)); }
-      if (cloudSemStart) { localStorage.setItem('wtm_sem_start', cloudSemStart); }
-      if (cloudSemEnd)   { localStorage.setItem('wtm_sem_end',   cloudSemEnd); }
-      setSyncStatus('ok', 'Synced');
+      // Compare timestamps — use whichever is newer
+      const cloudTime = new Date(cloudUpdatedAt).getTime() || 0;
+      const localTime = new Date(localLastPush).getTime() || 0;
+
+      if (localTime > cloudTime) {
+        // Local is newer — push local to cloud
+        setSyncStatus('syncing', 'Local is newer, pushing…');
+        await pushToCloud();
+        setSyncStatus('ok', 'Synced (local was newer)');
+      } else {
+        // Cloud is newer or same — pull from cloud
+        tasks = cloudTasks;
+        localStorage.setItem('wtm_tasks', JSON.stringify(tasks));
+        if (cloudArchive.length > 0)  { archive = cloudArchive; localStorage.setItem('wtm_archive', JSON.stringify(archive)); }
+        if (cloudSemester.length > 0) { semesterAssignments = cloudSemester; localStorage.setItem('wtm_semester', JSON.stringify(semesterAssignments)); }
+        if (cloudCourses.length > 0)  { semesterCourses = cloudCourses; localStorage.setItem('wtm_courses', JSON.stringify(semesterCourses)); }
+        if (cloudProjects.length > 0) { projects = cloudProjects; localStorage.setItem('wtm_projects', JSON.stringify(projects)); }
+        if (cloudTemplates.length > 0) { progTemplates = cloudTemplates; localStorage.setItem('wtm_prog_templates', JSON.stringify(progTemplates)); }
+        if (Object.keys(cloudSemPresets).length > 0) { localStorage.setItem('wtm_sem_presets', JSON.stringify(cloudSemPresets)); }
+        if (cloudSemStart) { localStorage.setItem('wtm_sem_start', cloudSemStart); }
+        if (cloudSemEnd)   { localStorage.setItem('wtm_sem_end',   cloudSemEnd); }
+        setSyncStatus('ok', 'Synced');
+      }
     } else {
-      // Both empty
       setSyncStatus('ok', 'Synced');
     }
   } catch (err) {
@@ -2766,23 +2781,33 @@ async function loadData() {
 
 let saveTimer = null;
 function saveData() {
-  // Always save to localStorage immediately
   localStorage.setItem('wtm_tasks', JSON.stringify(tasks));
-
-  // Debounce cloud save by 1.5s so rapid changes batch together
   clearTimeout(saveTimer);
   saveTimer = setTimeout(pushToCloud, 500);
 }
 
 async function pushToCloud() {
   setSyncStatus('syncing', 'Saving…');
+  const now = new Date().toISOString();
   try {
     const res = await fetch(API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-User-Id': getUserId(), 'X-App-Secret': getAppSecret() },
-      body: JSON.stringify({ tasks, archive, semester: semesterAssignments, courses: semesterCourses, projects, templates: progTemplates, semPresets: JSON.parse(localStorage.getItem('wtm_sem_presets')||'{}'), semStart: localStorage.getItem('wtm_sem_start')||'', semEnd: localStorage.getItem('wtm_sem_end')||'' })
+      body: JSON.stringify({
+        tasks, archive,
+        semester: semesterAssignments,
+        courses: semesterCourses,
+        projects,
+        templates: progTemplates,
+        semPresets: JSON.parse(localStorage.getItem('wtm_sem_presets')||'{}'),
+        semStart: localStorage.getItem('wtm_sem_start')||'',
+        semEnd: localStorage.getItem('wtm_sem_end')||'',
+        updatedAt: now
+      })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
+    // Record when we last successfully pushed
+    localStorage.setItem('wtm_last_push', now);
     setSyncStatus('ok', 'Saved to cloud');
   } catch (err) {
     console.warn('Cloud save failed:', err);
@@ -5098,12 +5123,19 @@ function renderSemesterPlanner(content) {
           </div>
         </div>
       </td>
-      ${dates.map(d => `<td class="course-header-fill" style="border-bottom-color:${color};background:color-mix(in srgb,${color} 6%,var(--bg3));height:28px"></td>`).join('')}
+      ${dates.map(d => `<td class="course-header-fill ${d===todayStr?'today-col':''}" style="border-bottom-color:${color};background:${d===todayStr?'rgba(79,142,247,0.15)':'color-mix(in srgb,${color} 6%,var(--bg3))'};height:28px"></td>`).join('')}
     </tr>`;
 
     // Sub-rows
     subRows.forEach((rowAsgns, rowIdx) => {
-      let cells = `<td class="gantt-label-cell gantt-course-empty-label" style="background:color-mix(in srgb,${color} 3%,var(--bg2))"></td>`;
+      // Label cell — show assignment names with edit/delete buttons
+      let cells = `<td class="gantt-label-cell gantt-course-empty-label" style="background:color-mix(in srgb,${color} 3%,var(--bg2));padding:3px 8px !important">
+        ${rowAsgns.map(asgn => `<div style="display:flex;align-items:center;gap:3px;white-space:nowrap;overflow:hidden;padding:1px 0">
+          <span style="font-size:11px;font-weight:600;color:var(--text2);overflow:hidden;text-overflow:ellipsis;flex:1;line-height:1.5" title="${escHtml(asgn.name)}">${escHtml(asgn.name)}</span>
+          <button class="task-act-btn" onclick="openEditAssignmentModal('${asgn.id}',event)" title="Edit assignment" style="font-size:9px;flex-shrink:0;opacity:0.6"><i class="fa-solid fa-pen"></i></button>
+          <button class="task-act-btn del" onclick="deleteAssignment('${asgn.id}',event)" title="Delete assignment" style="font-size:9px;flex-shrink:0;opacity:0.6"><i class="fa-solid fa-trash"></i></button>
+        </div>`).join('')}
+      </td>`;
       // Build a map of date → assignment for this sub-row
       const dateMap = {};
       rowAsgns.forEach(asgn => {
