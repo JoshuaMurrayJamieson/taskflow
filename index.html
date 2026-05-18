@@ -2419,6 +2419,326 @@
   .template-item-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
   .template-item-name { flex: 1; font-size: 13px; font-weight: 600; color: var(--text); line-height: 1.5; }
 
+
+  /* ══════════════════════════════════════
+     BUDGET APP
+     ══════════════════════════════════════ */
+  .budget-page {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--bg);
+    z-index: 100;
+    flex-direction: column;
+    animation: fadeIn 0.2s ease;
+  }
+  .budget-page.open { display: flex; }
+
+  .budget-topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+  .budget-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 22px;
+    color: var(--low);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+  }
+  .budget-nav {
+    display: flex;
+    gap: 2px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 3px;
+  }
+  .budget-nav-btn {
+    background: none;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 14px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text3);
+    transition: all var(--transition);
+    line-height: 1.5;
+  }
+  .budget-nav-btn:hover { color: var(--text2); background: var(--border); }
+  .budget-nav-btn.active { background: var(--bg2); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+
+  .budget-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* Summary cards */
+  .budget-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .budget-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 18px;
+  }
+  .budget-card-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 6px;
+  }
+  .budget-card-value {
+    font-size: 26px;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.2;
+  }
+  .budget-card-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Progress bar */
+  .budget-progress-wrap {
+    background: var(--bg3);
+    border-radius: 4px;
+    height: 6px;
+    margin-top: 8px;
+    overflow: hidden;
+  }
+  .budget-progress-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+
+  /* Bills */
+  .bill-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    margin-bottom: 6px;
+    transition: border-color var(--transition);
+  }
+  .bill-item:hover { border-color: var(--border2); }
+  .bill-due-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 2px 8px 3px;
+    border-radius: 4px;
+    font-weight: 700;
+    flex-shrink: 0;
+    line-height: 1.6;
+  }
+  .bill-item.overdue { border-left: 3px solid var(--high); }
+  .bill-item.due-soon { border-left: 3px solid var(--med); }
+  .bill-name {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.8;
+    padding-bottom: 2px;
+  }
+  .bill-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--high);
+  }
+  .bill-category {
+    font-size: 10px;
+    color: var(--text3);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1px 7px;
+    line-height: 1.6;
+  }
+
+  /* Mini calendar */
+  .budget-calendar {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .budget-cal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .budget-cal-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .budget-cal-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+  }
+  .budget-cal-day-label {
+    text-align: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--text3);
+    padding: 4px 0;
+    letter-spacing: 0.5px;
+  }
+  .budget-cal-cell {
+    min-height: 36px;
+    border-radius: 4px;
+    padding: 3px;
+    position: relative;
+    font-size: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text3);
+    background: var(--bg3);
+    text-align: center;
+  }
+  .budget-cal-cell.today { background: rgba(79,142,247,0.15); color: var(--accent); font-weight: 800; }
+  .budget-cal-cell.has-bill { background: rgba(240,93,93,0.1); }
+  .budget-cal-cell.has-income { background: rgba(77,207,142,0.1); }
+  .budget-cal-cell.has-both { background: rgba(240,184,77,0.1); }
+  .budget-cal-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    display: inline-block;
+    margin: 0 1px;
+  }
+
+  /* Allocation bars */
+  .alloc-item {
+    margin-bottom: 12px;
+  }
+  .alloc-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .alloc-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .alloc-amounts {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  /* Projection chart */
+  .projection-chart {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    height: 220px;
+    position: relative;
+    overflow: hidden;
+  }
+  .proj-canvas {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Two col layout */
+  .budget-two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  .budget-section-title {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: var(--text2);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .budget-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+  .budget-add-btn {
+    background: none;
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 7px 14px;
+    cursor: pointer;
+    color: var(--text3);
+    font-family: 'Inter', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all var(--transition);
+    line-height: 1.5;
+    width: 100%;
+    justify-content: center;
+    margin-top: 8px;
+  }
+  .budget-add-btn:hover { border-color: var(--low); color: var(--low); background: var(--low-bg); }
+
+  /* Fortnight selector */
+  .fortnight-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 8px 14px;
+    margin-bottom: 4px;
+  }
+  .fortnight-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text2);
+    flex: 1;
+    text-align: center;
+  }
+
+  @media (max-width: 768px) {
+    .budget-summary-grid { grid-template-columns: 1fr 1fr; }
+    .budget-two-col { grid-template-columns: 1fr; }
+    .budget-body { padding: 14px; }
+  }
+
 </style>
 </head>
 <body>
@@ -2459,6 +2779,7 @@
   </div>
   <nav class="day-nav" id="dayNav"></nav>
   <div class="sidebar-actions" style="padding:6px 10px;border-top:1px solid var(--border)">
+    <button class="sidebar-btn" onclick="openBudget()" style="color:var(--low);border-color:rgba(77,207,142,0.3)"><i class="fa-solid fa-wallet"></i> Budget</button>
     <button class="sidebar-btn" onclick="selectDay('_projects')" style="color:var(--med);border-color:rgba(240,184,77,0.3)"><i class="fa-solid fa-diagram-project"></i> Projects</button>
     <button class="sidebar-btn flag-btn" onclick="toggleFlagsPanel()"><i class="fa-solid fa-flag"></i> View All Flags</button>
     <button class="sidebar-btn" onclick="selectDay('_semester')" style="color:var(--uni);border-color:rgba(56,189,248,0.3)"><i class="fa-solid fa-graduation-cap"></i> University</button>
@@ -2768,6 +3089,7 @@ async function loadData() {
         if (Object.keys(cloudSemPresets).length > 0) { localStorage.setItem('wtm_sem_presets', JSON.stringify(cloudSemPresets)); }
         if (cloudSemStart) { localStorage.setItem('wtm_sem_start', cloudSemStart); }
         if (cloudSemEnd)   { localStorage.setItem('wtm_sem_end',   cloudSemEnd); }
+      if (data.budget && Object.keys(data.budget).length > 0) { budgetData = { ...budgetData, ...data.budget }; localStorage.setItem('wtm_budget', JSON.stringify(budgetData)); }
         setSyncStatus('ok', 'Synced');
       }
     } else {
@@ -4418,6 +4740,10 @@ document.addEventListener('keydown', e => {
     closeProjModal();
     closeProjProgListModal();
     closeProgTemplatesModal();
+    closeIncomeModal();
+    closeBillModal();
+    closeAllocModal();
+    closeTransModal();
   }
   if (e.key === 'Enter' && document.getElementById('modalOverlay').style.display !== 'none') {
     if (document.activeElement !== document.getElementById('fName')) return;
@@ -6561,6 +6887,522 @@ function deleteTemplate(id) {
   showToast('Template deleted');
 }
 
+
+// ============================================================
+// BUDGET APP
+// ============================================================
+let budgetData = {
+  fortnightStartDay: 1,       // day of month pay starts (1 or 15 etc)
+  incomes: [],                // [{id, name, amount, dayOfFortnight, color}]
+  bills: [],                  // [{id, name, amount, dayOfMonth, category, color, recurring}]
+  allocations: [],            // [{id, name, percent, color}]
+  transactions: []            // [{id, date, name, amount, type:'income'|'expense', category}]
+};
+try {
+  const saved = JSON.parse(localStorage.getItem('wtm_budget') || 'null');
+  if (saved) budgetData = { ...budgetData, ...saved };
+} catch {}
+
+let budgetTab = 'overview';   // overview | bills | allocations | history
+let budgetModalMode = null;
+let currentBillEdit = null;
+let currentIncomeEdit = null;
+let currentAllocEdit = null;
+
+function saveBudget() {
+  localStorage.setItem('wtm_budget', JSON.stringify(budgetData));
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(pushToCloud, 500);
+}
+
+function openBudget() {
+  document.getElementById('budgetPage').classList.add('open');
+  renderBudget();
+}
+function closeBudget() {
+  document.getElementById('budgetPage').classList.remove('open');
+}
+function setBudgetTab(tab) {
+  budgetTab = tab;
+  renderBudget();
+}
+
+// ── HELPERS ───────────────────────────────────────────────────
+function fmtAUD(n) {
+  return '$' + Math.abs(n).toLocaleString('en-AU', {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+function getTotalIncome() {
+  return budgetData.incomes.reduce((a,i) => a + (parseFloat(i.amount)||0), 0);
+}
+function getTotalBills() {
+  return budgetData.bills.filter(b=>b.recurring!==false).reduce((a,b) => a + (parseFloat(b.amount)||0), 0);
+}
+function getFortnightDates() {
+  const today = new Date();
+  const start = new Date(today);
+  // Find the most recent fortnight start
+  const dom = today.getDate();
+  const startDay = budgetData.fortnightStartDay || 1;
+  if (dom >= startDay && dom < startDay + 14) {
+    start.setDate(startDay);
+  } else if (dom >= startDay + 14) {
+    start.setDate(startDay + 14);
+  } else {
+    start.setMonth(start.getMonth() - 1);
+    start.setDate(startDay + 14);
+  }
+  const end = new Date(start);
+  end.setDate(start.getDate() + 13);
+  return { start, end };
+}
+function getUpcomingBills(days = 60) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const result = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    budgetData.bills.forEach(bill => {
+      if (bill.dayOfMonth && parseInt(bill.dayOfMonth) === d.getDate()) {
+        const diff = i;
+        result.push({ ...bill, date: d.toISOString().split('T')[0], daysUntil: diff });
+      }
+    });
+  }
+  return result.sort((a,b) => a.daysUntil - b.daysUntil);
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderBudget() {
+  const body = document.getElementById('budgetBody');
+  if (!body) return;
+  const totalIncome = getTotalIncome();
+  const totalBills  = getTotalBills();
+  const leftover    = totalIncome - totalBills;
+  const totalAlloc  = budgetData.allocations.reduce((a,al) => a + (parseFloat(al.percent)||0), 0);
+  const pct = totalIncome > 0 ? Math.round((totalBills/totalIncome)*100) : 0;
+
+  if (budgetTab === 'overview') body.innerHTML = renderBudgetOverview(totalIncome, totalBills, leftover, pct);
+  else if (budgetTab === 'bills') body.innerHTML = renderBudgetBills();
+  else if (budgetTab === 'allocations') body.innerHTML = renderBudgetAllocations(totalIncome, leftover);
+  else if (budgetTab === 'history') body.innerHTML = renderBudgetHistory();
+
+  // Draw projection chart if on overview
+  if (budgetTab === 'overview') {
+    setTimeout(() => drawProjectionChart(), 50);
+  }
+}
+
+function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
+  const upcoming = getUpcomingBills(14);
+  const color = leftover >= 0 ? 'var(--low)' : 'var(--high)';
+  const barColor = pct > 90 ? '#f05d5d' : pct > 70 ? '#f0b84d' : '#4dcf8e';
+
+  return `
+  <div class="budget-summary-grid">
+    <div class="budget-card" style="border-left:3px solid var(--low)">
+      <div class="budget-card-label">Fortnightly Income</div>
+      <div class="budget-card-value" style="color:var(--low)">${fmtAUD(totalIncome)}</div>
+      <div class="budget-card-sub">${budgetData.incomes.length} income source${budgetData.incomes.length!==1?'s':''}</div>
+    </div>
+    <div class="budget-card" style="border-left:3px solid var(--high)">
+      <div class="budget-card-label">Fortnightly Bills</div>
+      <div class="budget-card-value" style="color:var(--high)">${fmtAUD(totalBills)}</div>
+      <div class="budget-progress-wrap"><div class="budget-progress-fill" style="width:${Math.min(pct,100)}%;background:${barColor}"></div></div>
+      <div class="budget-card-sub">${pct}% of income · ${budgetData.bills.length} bill${budgetData.bills.length!==1?'s':''}</div>
+    </div>
+    <div class="budget-card" style="border-left:3px solid ${color}">
+      <div class="budget-card-label">Left Over</div>
+      <div class="budget-card-value" style="color:${color}">${leftover >= 0 ? '' : '-'}${fmtAUD(leftover)}</div>
+      <div class="budget-card-sub">after all bills</div>
+    </div>
+    <div class="budget-card" style="border-left:3px solid var(--accent)">
+      <div class="budget-card-label">Next Bill Due</div>
+      ${upcoming.length ? `
+        <div class="budget-card-value" style="font-size:18px;color:${upcoming[0].daysUntil===0?'var(--high)':upcoming[0].daysUntil<=3?'var(--med)':'var(--text)'}">${upcoming[0].name}</div>
+        <div class="budget-card-sub">${upcoming[0].daysUntil===0?'Due today':upcoming[0].daysUntil===1?'Tomorrow':'In '+upcoming[0].daysUntil+' days'} · ${fmtAUD(upcoming[0].amount)}</div>
+      ` : `<div class="budget-card-value" style="font-size:16px;color:var(--text3)">No bills set</div>`}
+    </div>
+  </div>
+
+  <!-- Income sources -->
+  <div>
+    <div class="budget-section-title"><i class="fa-solid fa-arrow-trend-up" style="color:var(--low)"></i> Income Sources</div>
+    ${budgetData.incomes.map(inc => `
+      <div class="bill-item">
+        <span class="bill-category" style="color:${inc.color||'var(--low)'};border-color:${inc.color||'var(--low)'}">${escHtml(inc.name)}</span>
+        <span class="bill-name" style="color:var(--low)">${fmtAUD(inc.amount)} <span style="font-size:11px;color:var(--text3);font-weight:400">per fortnight</span></span>
+        <button class="task-act-btn" onclick="editIncome('${inc.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
+        <button class="task-act-btn del" onclick="deleteIncome('${inc.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+      </div>`).join('')}
+    <button class="budget-add-btn" onclick="openIncomeModal()"><i class="fa-solid fa-plus"></i> Add Income Source</button>
+  </div>
+
+  <!-- Projection -->
+  <div>
+    <div class="budget-section-title"><i class="fa-solid fa-chart-line" style="color:var(--accent)"></i> 3-Month Projection</div>
+    <div class="projection-chart">
+      <canvas id="projCanvas" class="proj-canvas"></canvas>
+    </div>
+  </div>
+
+  <!-- Upcoming bills preview -->
+  <div>
+    <div class="budget-section-title"><i class="fa-solid fa-calendar-check" style="color:var(--med)"></i> Next 14 Days</div>
+    ${upcoming.length ? upcoming.map(b => `
+      <div class="bill-item ${b.daysUntil===0?'overdue':b.daysUntil<=3?'due-soon':''}">
+        <span class="bill-due-badge" style="background:${b.daysUntil===0?'var(--high-bg)':b.daysUntil<=3?'var(--med-bg)':'var(--bg3)'};color:${b.daysUntil===0?'var(--high)':b.daysUntil<=3?'var(--med)':'var(--text3)'}">${b.daysUntil===0?'TODAY':b.daysUntil===1?'TOMORROW':b.date}</span>
+        <span class="bill-name">${escHtml(b.name)}</span>
+        ${b.category ? `<span class="bill-category">${escHtml(b.category)}</span>` : ''}
+        <span class="bill-amount">-${fmtAUD(b.amount)}</span>
+      </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:12px 0">No bills due in the next 14 days.</div>`}
+  </div>`;
+}
+
+function renderBudgetBills() {
+  const upcoming = getUpcomingBills(60);
+  const calHtml = renderBillsCalendar();
+  return `
+  <div class="budget-two-col">
+    <div>
+      <div class="budget-section-title"><i class="fa-solid fa-receipt" style="color:var(--high)"></i> All Bills</div>
+      ${budgetData.bills.length ? budgetData.bills.map(b => `
+        <div class="bill-item">
+          <span class="bill-due-badge" style="background:var(--bg3);color:var(--text3)">Day ${b.dayOfMonth}</span>
+          <span class="bill-name">${escHtml(b.name)}</span>
+          ${b.category ? `<span class="bill-category">${escHtml(b.category)}</span>` : ''}
+          <span class="bill-amount">-${fmtAUD(b.amount)}</span>
+          <button class="task-act-btn" onclick="editBill('${b.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
+          <button class="task-act-btn del" onclick="deleteBill('${b.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+        </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:12px 0">No bills added yet.</div>`}
+      <button class="budget-add-btn" onclick="openBillModal()"><i class="fa-solid fa-plus"></i> Add Bill</button>
+    </div>
+    <div>${calHtml}</div>
+  </div>`;
+}
+
+function renderBillsCalendar() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const monthName = today.toLocaleString('en-AU',{month:'long',year:'numeric'});
+
+  // Build bill/income day map
+  const billDays = new Set(budgetData.bills.map(b => parseInt(b.dayOfMonth)));
+  const incomeDays = new Set(budgetData.incomes.map(i => parseInt(i.dayOfFortnight)).filter(Boolean));
+
+  let cal = `<div class="budget-calendar">
+    <div class="budget-cal-header"><span class="budget-cal-title">${monthName}</span></div>
+    <div class="budget-cal-grid">
+      ${['Su','Mo','Tu','We','Th','Fr','Sa'].map(d=>`<div class="budget-cal-day-label">${d}</div>`).join('')}
+      ${Array(firstDay).fill('<div></div>').join('')}
+      ${Array.from({length:daysInMonth},(_,i)=>{
+        const d = i+1;
+        const isToday = d === today.getDate();
+        const hasBill = billDays.has(d);
+        const hasInc  = incomeDays.has(d);
+        const cls = isToday?'today':hasBill&&hasInc?'has-both':hasBill?'has-bill':hasInc?'has-income':'';
+        const bills = budgetData.bills.filter(b=>parseInt(b.dayOfMonth)===d);
+        const tip = bills.map(b=>b.name+' '+fmtAUD(b.amount)).join(', ');
+        return `<div class="budget-cal-cell ${cls}" title="${tip}">
+          <div>${d}</div>
+          ${hasBill?`<div class="budget-cal-dot" style="background:var(--high)"></div>`:''}
+          ${hasInc?`<div class="budget-cal-dot" style="background:var(--low)"></div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="display:flex;gap:12px;margin-top:10px;font-size:11px;color:var(--text3)">
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--high);margin-right:4px"></span>Bill due</span>
+      <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--low);margin-right:4px"></span>Income</span>
+    </div>
+  </div>`;
+  return cal;
+}
+
+function renderBudgetAllocations(totalIncome, leftover) {
+  const totalPct = budgetData.allocations.reduce((a,al)=>a+(parseFloat(al.percent)||0),0);
+  return `
+  <div>
+    <div class="budget-section-title"><i class="fa-solid fa-pie-chart" style="color:var(--accent)"></i> Allocations <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px">(of leftover ${fmtAUD(leftover)})</span></div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+      <!-- Stacked bar -->
+      <div style="display:flex;height:20px;border-radius:10px;overflow:hidden;margin-bottom:16px;gap:1px">
+        ${budgetData.allocations.map(al => {
+          const pct = parseFloat(al.percent)||0;
+          return `<div style="width:${pct}%;background:${al.color||'var(--accent)'};transition:width 0.4s;min-width:${pct>0?'2px':'0'}" title="${al.name}: ${pct}%"></div>`;
+        }).join('')}
+        ${totalPct < 100 ? `<div style="width:${100-totalPct}%;background:var(--bg3)" title="Unallocated: ${100-totalPct}%"></div>` : ''}
+      </div>
+      ${budgetData.allocations.map(al => {
+        const pct = parseFloat(al.percent)||0;
+        const amt = leftover * (pct/100);
+        return `<div class="alloc-item">
+          <div class="alloc-header">
+            <div style="display:flex;align-items:center;gap:8px">
+              <div style="width:10px;height:10px;border-radius:50%;background:${al.color||'var(--accent)'}"></div>
+              <span class="alloc-name">${escHtml(al.name)}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="alloc-amounts" style="color:var(--low)">${fmtAUD(amt)}</span>
+              <span class="alloc-amounts" style="color:var(--text3)">${pct}%</span>
+              <button class="task-act-btn" onclick="editAlloc('${al.id}')" style="font-size:10px"><i class="fa-solid fa-pen"></i></button>
+              <button class="task-act-btn del" onclick="deleteAlloc('${al.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
+          <div class="budget-progress-wrap"><div class="budget-progress-fill" style="width:${pct}%;background:${al.color||'var(--accent)'}"></div></div>
+        </div>`;
+      }).join('')}
+      ${totalPct < 100 ? `<div style="font-size:12px;color:var(--text3);margin-top:8px;font-family:'JetBrains Mono',monospace">${100-totalPct}% unallocated = ${fmtAUD(leftover*(1-totalPct/100))}</div>` : ''}
+      ${totalPct > 100 ? `<div style="font-size:12px;color:var(--high);margin-top:8px">⚠ Over-allocated by ${totalPct-100}%</div>` : ''}
+    </div>
+    <button class="budget-add-btn" onclick="openAllocModal()"><i class="fa-solid fa-plus"></i> Add Allocation</button>
+  </div>`;
+}
+
+function renderBudgetHistory() {
+  const sorted = [...(budgetData.transactions||[])].sort((a,b)=>b.date.localeCompare(a.date));
+  return `
+  <div>
+    <div class="budget-section-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--text2)"></i> Transaction History</div>
+    ${sorted.length ? sorted.map(t => `
+      <div class="bill-item">
+        <span class="bill-due-badge" style="background:var(--bg3);color:var(--text3)">${t.date}</span>
+        <span class="bill-name">${escHtml(t.name)}</span>
+        ${t.category?`<span class="bill-category">${escHtml(t.category)}</span>`:''}
+        <span class="bill-amount" style="color:${t.type==='income'?'var(--low)':'var(--high)'}">${t.type==='income'?'+':'-'}${fmtAUD(t.amount)}</span>
+        <button class="task-act-btn del" onclick="deleteTransaction('${t.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+      </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:12px 0">No transactions logged yet.</div>`}
+    <button class="budget-add-btn" onclick="openTransactionModal()"><i class="fa-solid fa-plus"></i> Log Transaction</button>
+  </div>`;
+}
+
+// ── PROJECTION CHART ─────────────────────────────────────────
+function drawProjectionChart() {
+  const canvas = document.getElementById('projCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.offsetWidth; const H = canvas.offsetHeight;
+  canvas.width = W; canvas.height = H;
+
+  const totalIncome = getTotalIncome();
+  const totalBills  = getTotalBills();
+  const today = new Date();
+
+  // Generate 90 day projection
+  const points = [];
+  let balance = 0;
+  for (let i = 0; i < 91; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const dom = d.getDate();
+    // Add fortnightly income on pay day
+    if (dom === (budgetData.fortnightStartDay || 1) || dom === ((budgetData.fortnightStartDay||1) + 14)) {
+      balance += totalIncome;
+    }
+    // Deduct bills on their day
+    budgetData.bills.forEach(b => {
+      if (parseInt(b.dayOfMonth) === dom) balance -= parseFloat(b.amount)||0;
+    });
+    points.push({ day: i, balance });
+  }
+
+  const minB = Math.min(...points.map(p=>p.balance), 0);
+  const maxB = Math.max(...points.map(p=>p.balance), 1000);
+  const range = maxB - minB || 1;
+  const pad = { t:20, r:20, b:30, l:70 };
+  const cw = W - pad.l - pad.r;
+  const ch = H - pad.t - pad.b;
+
+  ctx.clearRect(0,0,W,H);
+
+  // Zero line
+  const zeroY = pad.t + ch * (1 - (0 - minB)/range);
+  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(pad.l, zeroY); ctx.lineTo(W-pad.r, zeroY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Fill gradient
+  const grad = ctx.createLinearGradient(0, pad.t, 0, H-pad.b);
+  grad.addColorStop(0, 'rgba(77,207,142,0.3)');
+  grad.addColorStop(1, 'rgba(77,207,142,0.02)');
+
+  ctx.beginPath();
+  points.forEach((p,i) => {
+    const x = pad.l + (p.day/90)*cw;
+    const y = pad.t + ch*(1-(p.balance-minB)/range);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.lineTo(pad.l+cw, H-pad.b);
+  ctx.lineTo(pad.l, H-pad.b);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = '#4dcf8e';
+  ctx.lineWidth = 2;
+  points.forEach((p,i) => {
+    const x = pad.l + (p.day/90)*cw;
+    const y = pad.t + ch*(1-(p.balance-minB)/range);
+    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  });
+  ctx.stroke();
+
+  // Y labels
+  ctx.fillStyle = 'rgba(138,146,164,0.8)';
+  ctx.font = '10px JetBrains Mono';
+  ctx.textAlign = 'right';
+  [0,0.25,0.5,0.75,1].forEach(t => {
+    const val = minB + range*t;
+    const y = pad.t + ch*(1-t);
+    ctx.fillText('$'+Math.round(val).toLocaleString(), pad.l-6, y+4);
+    ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+  });
+
+  // X labels (month names)
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(138,146,164,0.8)';
+  [0,30,60,90].forEach(day => {
+    const d = new Date(today); d.setDate(today.getDate()+day);
+    const lbl = d.toLocaleString('en-AU',{month:'short',day:'numeric'});
+    const x = pad.l + (day/90)*cw;
+    ctx.fillText(lbl, x, H-6);
+  });
+}
+
+// ── CRUD OPERATIONS ──────────────────────────────────────────
+// Income
+function openIncomeModal(id) {
+  currentIncomeEdit = id || null;
+  const inc = id ? budgetData.incomes.find(i=>i.id===id) : null;
+  document.getElementById('budgetIncomeModal').style.display='flex';
+  document.getElementById('incName').value  = inc?.name||'';
+  document.getElementById('incAmount').value= inc?.amount||'';
+  document.getElementById('incDay').value   = inc?.dayOfFortnight||'1';
+  setTimeout(()=>document.getElementById('incName').focus(),50);
+}
+function closeIncomeModal() { document.getElementById('budgetIncomeModal').style.display='none'; }
+function editIncome(id) { openIncomeModal(id); }
+function saveIncome() {
+  const name=document.getElementById('incName').value.trim();
+  const amount=document.getElementById('incAmount').value;
+  const day=document.getElementById('incDay').value;
+  if(!name||!amount){showToast('Fill in all fields');return;}
+  if(currentIncomeEdit) {
+    const i=budgetData.incomes.find(i=>i.id===currentIncomeEdit);
+    if(i){i.name=name;i.amount=parseFloat(amount);i.dayOfFortnight=parseInt(day);}
+  } else {
+    budgetData.incomes.push({id:uid(),name,amount:parseFloat(amount),dayOfFortnight:parseInt(day),color:'#4dcf8e'});
+  }
+  saveBudget(); closeIncomeModal(); renderBudget(); showToast('Income saved ✓');
+}
+function deleteIncome(id) {
+  if(!confirm('Delete this income source?'))return;
+  budgetData.incomes=budgetData.incomes.filter(i=>i.id!==id);
+  saveBudget();renderBudget();
+}
+
+// Bills
+function openBillModal(id) {
+  currentBillEdit=id||null;
+  const b=id?budgetData.bills.find(b=>b.id===id):null;
+  document.getElementById('budgetBillModal').style.display='flex';
+  document.getElementById('billName').value    =b?.name||'';
+  document.getElementById('billAmount').value  =b?.amount||'';
+  document.getElementById('billDay').value     =b?.dayOfMonth||'1';
+  document.getElementById('billCategory').value=b?.category||'';
+  setTimeout(()=>document.getElementById('billName').focus(),50);
+}
+function closeBillModal(){document.getElementById('budgetBillModal').style.display='none';}
+function editBill(id){openBillModal(id);}
+function saveBill(){
+  const name=document.getElementById('billName').value.trim();
+  const amount=document.getElementById('billAmount').value;
+  const day=document.getElementById('billDay').value;
+  const category=document.getElementById('billCategory').value.trim();
+  if(!name||!amount){showToast('Fill in all fields');return;}
+  if(currentBillEdit){
+    const b=budgetData.bills.find(b=>b.id===currentBillEdit);
+    if(b){b.name=name;b.amount=parseFloat(amount);b.dayOfMonth=parseInt(day);b.category=category;}
+  } else {
+    budgetData.bills.push({id:uid(),name,amount:parseFloat(amount),dayOfMonth:parseInt(day),category,recurring:true});
+  }
+  saveBudget();closeBillModal();renderBudget();showToast('Bill saved ✓');
+}
+function deleteBill(id){
+  if(!confirm('Delete this bill?'))return;
+  budgetData.bills=budgetData.bills.filter(b=>b.id!==id);
+  saveBudget();renderBudget();
+}
+
+// Allocations
+function openAllocModal(id){
+  currentAllocEdit=id||null;
+  const al=id?budgetData.allocations.find(a=>a.id===id):null;
+  document.getElementById('budgetAllocModal').style.display='flex';
+  document.getElementById('allocName').value   =al?.name||'';
+  document.getElementById('allocPercent').value=al?.percent||'';
+  document.getElementById('allocColor').value  =al?.color||'#4f8ef7';
+  setTimeout(()=>document.getElementById('allocName').focus(),50);
+}
+function closeAllocModal(){document.getElementById('budgetAllocModal').style.display='none';}
+function editAlloc(id){openAllocModal(id);}
+function saveAlloc(){
+  const name=document.getElementById('allocName').value.trim();
+  const pct=document.getElementById('allocPercent').value;
+  const color=document.getElementById('allocColor').value;
+  if(!name||!pct){showToast('Fill in all fields');return;}
+  if(currentAllocEdit){
+    const al=budgetData.allocations.find(a=>a.id===currentAllocEdit);
+    if(al){al.name=name;al.percent=parseFloat(pct);al.color=color;}
+  } else {
+    budgetData.allocations.push({id:uid(),name,percent:parseFloat(pct),color});
+  }
+  saveBudget();closeAllocModal();renderBudget();showToast('Allocation saved ✓');
+}
+function deleteAlloc(id){
+  if(!confirm('Delete this allocation?'))return;
+  budgetData.allocations=budgetData.allocations.filter(a=>a.id!==id);
+  saveBudget();renderBudget();
+}
+
+// Transactions
+function openTransactionModal(){
+  document.getElementById('budgetTransModal').style.display='flex';
+  document.getElementById('transName').value='';
+  document.getElementById('transAmount').value='';
+  document.getElementById('transDate').value=getTodayDate();
+  document.getElementById('transType').value='expense';
+  document.getElementById('transCat').value='';
+  setTimeout(()=>document.getElementById('transName').focus(),50);
+}
+function closeTransModal(){document.getElementById('budgetTransModal').style.display='none';}
+function saveTransaction(){
+  const name=document.getElementById('transName').value.trim();
+  const amount=document.getElementById('transAmount').value;
+  const date=document.getElementById('transDate').value;
+  const type=document.getElementById('transType').value;
+  const category=document.getElementById('transCat').value.trim();
+  if(!name||!amount){showToast('Fill in all fields');return;}
+  budgetData.transactions.push({id:uid(),name,amount:parseFloat(amount),date,type,category});
+  saveBudget();closeTransModal();renderBudget();showToast('Transaction logged ✓');
+}
+function deleteTransaction(id){
+  budgetData.transactions=budgetData.transactions.filter(t=>t.id!==id);
+  saveBudget();renderBudget();
+}
+
+// Fortnight start day setting
+function saveFortnightStart(){
+  const day=parseInt(document.getElementById('fortnightStartDay').value);
+  if(day>=1&&day<=28){budgetData.fortnightStartDay=day;saveBudget();renderBudget();showToast('Pay day updated ✓');}
+}
+
 // ============================================================
 // FRIDAY AUTO-BACKUP
 // ============================================================
@@ -6985,6 +7827,88 @@ if (isLoggedIn()) {
       <button class="btn-secondary" onclick="closeProjModal()">Cancel</button>
       <button class="btn-primary" onclick="saveProject()">Save Project</button>
     </div>
+  </div>
+</div>
+
+<!-- BUDGET PAGE -->
+<div class="budget-page" id="budgetPage">
+  <div class="budget-topbar">
+    <div class="budget-title"><i class="fa-solid fa-wallet"></i> Budget</div>
+    <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3)">
+      Pay day: every <input id="fortnightStartDay" type="number" min="1" max="28"
+        value="1" style="width:44px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);outline:none;text-align:center"
+        onchange="saveFortnightStart()"> of month
+    </div>
+    <div class="budget-nav">
+      <button class="budget-nav-btn active" id="bnav-overview" onclick="setBudgetTab('overview');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-gauge" style="margin-right:4px"></i>Overview</button>
+      <button class="budget-nav-btn" id="bnav-bills" onclick="setBudgetTab('bills');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-receipt" style="margin-right:4px"></i>Bills</button>
+      <button class="budget-nav-btn" id="bnav-allocations" onclick="setBudgetTab('allocations');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-chart-pie" style="margin-right:4px"></i>Allocations</button>
+      <button class="budget-nav-btn" id="bnav-history" onclick="setBudgetTab('history');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-clock-rotate-left" style="margin-right:4px"></i>History</button>
+    </div>
+    <button class="icon-btn" onclick="closeBudget()" title="Close Budget"><i class="fa-solid fa-xmark"></i></button>
+  </div>
+  <div class="budget-body" id="budgetBody"></div>
+</div>
+
+<!-- INCOME MODAL -->
+<div class="modal-overlay" id="budgetIncomeModal" style="display:none" onclick="if(event.target===this)closeIncomeModal()">
+  <div class="modal" style="width:400px">
+    <div class="modal-title"><i class="fa-solid fa-arrow-trend-up" style="color:var(--low)"></i> Income Source</div>
+    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="incName" type="text" placeholder="e.g. Salary, Casual Work" onkeydown="if(event.key==='Enter')saveIncome()"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Amount (AUD)</label><input class="form-input" id="incAmount" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="form-group"><label class="form-label">Day of Fortnight</label><input class="form-input" id="incDay" type="number" min="1" max="28" value="1" placeholder="Day 1-28"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeIncomeModal()">Cancel</button><button class="btn-primary" onclick="saveIncome()">Save</button></div>
+  </div>
+</div>
+
+<!-- BILL MODAL -->
+<div class="modal-overlay" id="budgetBillModal" style="display:none" onclick="if(event.target===this)closeBillModal()">
+  <div class="modal" style="width:420px">
+    <div class="modal-title"><i class="fa-solid fa-receipt" style="color:var(--high)"></i> Bill / Expense</div>
+    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="billName" type="text" placeholder="e.g. Rent, Netflix, Phone" onkeydown="if(event.key==='Enter')saveBill()"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Amount (AUD)</label><input class="form-input" id="billAmount" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="form-group"><label class="form-label">Day of Month</label><input class="form-input" id="billDay" type="number" min="1" max="31" value="1" placeholder="1-31"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Category (optional)</label><input class="form-input" id="billCategory" type="text" placeholder="e.g. Housing, Subscriptions, Transport"></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeBillModal()">Cancel</button><button class="btn-primary" onclick="saveBill()">Save</button></div>
+  </div>
+</div>
+
+<!-- ALLOCATION MODAL -->
+<div class="modal-overlay" id="budgetAllocModal" style="display:none" onclick="if(event.target===this)closeAllocModal()">
+  <div class="modal" style="width:400px">
+    <div class="modal-title"><i class="fa-solid fa-chart-pie" style="color:var(--accent)"></i> Allocation</div>
+    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="allocName" type="text" placeholder="e.g. Savings, Emergency Fund, Spending"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Percentage of Leftover</label><input class="form-input" id="allocPercent" type="number" step="1" min="1" max="100" placeholder="e.g. 30"></div>
+      <div class="form-group"><label class="form-label">Colour</label><input class="form-input" id="allocColor" type="color" value="#4f8ef7" style="height:42px;cursor:pointer;padding:2px 6px"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeAllocModal()">Cancel</button><button class="btn-primary" onclick="saveAlloc()">Save</button></div>
+  </div>
+</div>
+
+<!-- TRANSACTION MODAL -->
+<div class="modal-overlay" id="budgetTransModal" style="display:none" onclick="if(event.target===this)closeTransModal()">
+  <div class="modal" style="width:420px">
+    <div class="modal-title"><i class="fa-solid fa-dollar-sign" style="color:var(--text2)"></i> Log Transaction</div>
+    <div class="form-group"><label class="form-label">Description</label><input class="form-input" id="transName" type="text" placeholder="e.g. Groceries, Petrol"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Amount (AUD)</label><input class="form-input" id="transAmount" type="number" step="0.01" placeholder="0.00"></div>
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" id="transDate" type="date"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Type</label>
+        <select class="form-select" id="transType">
+          <option value="expense">Expense</option>
+          <option value="income">Income</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Category (optional)</label><input class="form-input" id="transCat" type="text" placeholder="e.g. Food, Transport"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeTransModal()">Cancel</button><button class="btn-primary" onclick="saveTransaction()">Log</button></div>
   </div>
 </div>
 
