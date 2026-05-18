@@ -2484,6 +2484,14 @@
     flex-direction: column;
     gap: 20px;
   }
+  .budget-content {
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
 
   /* Summary cards */
   .budget-summary-grid {
@@ -6917,6 +6925,9 @@ function saveBudget() {
 
 function openBudget() {
   document.getElementById('budgetPage').classList.add('open');
+  // Set saved pay date
+  const inp = document.getElementById('fortnightStartDay');
+  if (inp) inp.value = budgetData.fortnightStartDay || 1;
   renderBudget();
 }
 function closeBudget() {
@@ -6981,10 +6992,12 @@ function renderBudget() {
   const totalAlloc  = budgetData.allocations.reduce((a,al) => a + (parseFloat(al.percent)||0), 0);
   const pct = totalIncome > 0 ? Math.round((totalBills/totalIncome)*100) : 0;
 
-  if (budgetTab === 'overview') body.innerHTML = renderBudgetOverview(totalIncome, totalBills, leftover, pct);
-  else if (budgetTab === 'bills') body.innerHTML = renderBudgetBills();
-  else if (budgetTab === 'allocations') body.innerHTML = renderBudgetAllocations(totalIncome, leftover);
-  else if (budgetTab === 'history') body.innerHTML = renderBudgetHistory();
+  let tabHtml = '';
+  if (budgetTab === 'overview') tabHtml = renderBudgetOverview(totalIncome, totalBills, leftover, pct);
+  else if (budgetTab === 'bills') tabHtml = renderBudgetBills();
+  else if (budgetTab === 'allocations') tabHtml = renderBudgetAllocations(totalIncome, leftover);
+  else if (budgetTab === 'history') tabHtml = renderBudgetHistory();
+  body.innerHTML = `<div class="budget-content">${tabHtml}</div>`;
 
   // Draw projection chart if on overview
   if (budgetTab === 'overview') {
@@ -7090,7 +7103,13 @@ function renderBillsCalendar() {
 
   // Build bill/income day map
   const billDays = new Set(budgetData.bills.map(b => parseInt(b.dayOfMonth)));
-  const incomeDays = new Set(budgetData.incomes.map(i => parseInt(i.dayOfFortnight)).filter(Boolean));
+  // Calculate which days this month are pay days (every 14 days from startDay)
+  const startDay = budgetData.fortnightStartDay || 1;
+  const incomeDays = new Set();
+  const refPay = new Date(today.getFullYear(), today.getMonth() - 1, startDay);
+  for (let d2 = new Date(refPay); d2 <= new Date(today.getFullYear(), today.getMonth(), daysInMonth+1); d2.setDate(d2.getDate()+14)) {
+    if (d2.getMonth() === today.getMonth()) incomeDays.add(d2.getDate());
+  }
 
   let cal = `<div class="budget-calendar">
     <div class="budget-cal-header"><span class="budget-cal-title">${monthName}</span></div>
@@ -7196,10 +7215,13 @@ function drawProjectionChart() {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
     const dom = d.getDate();
-    // Add fortnightly income on pay day
-    if (dom === (budgetData.fortnightStartDay || 1) || dom === ((budgetData.fortnightStartDay||1) + 14)) {
-      balance += totalIncome;
-    }
+    // Add fortnightly income — every 14 days from the set start date
+    const startDay = budgetData.fortnightStartDay || 1;
+    const refDate = new Date(today.getFullYear(), today.getMonth(), startDay);
+    // Find nearest past pay date
+    while (refDate > d) refDate.setDate(refDate.getDate() - 14);
+    const daysSinceRef = Math.round((d - refDate) / 86400000);
+    if (daysSinceRef % 14 === 0) { balance += totalIncome; }
     // Deduct bills on their day
     budgetData.bills.forEach(b => {
       if (parseInt(b.dayOfMonth) === dom) balance -= parseFloat(b.amount)||0;
@@ -7835,9 +7857,9 @@ if (isLoggedIn()) {
   <div class="budget-topbar">
     <div class="budget-title"><i class="fa-solid fa-wallet"></i> Budget</div>
     <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text3)">
-      Pay day: every <input id="fortnightStartDay" type="number" min="1" max="28"
-        value="1" style="width:44px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);outline:none;text-align:center"
-        onchange="saveFortnightStart()"> of month
+      Pay date: <input id="fortnightStartDay" type="number" min="1" max="28"
+        value="${budgetData.fortnightStartDay||1}" style="width:44px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);outline:none;text-align:center"
+        onchange="saveFortnightStart()"> <span style="color:var(--text3)">then every 14 days</span>
     </div>
     <div class="budget-nav">
       <button class="budget-nav-btn active" id="bnav-overview" onclick="setBudgetTab('overview');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-gauge" style="margin-right:4px"></i>Overview</button>
