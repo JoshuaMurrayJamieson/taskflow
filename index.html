@@ -3110,10 +3110,15 @@ async function loadData() {
 }
 
 let saveTimer = null;
+let sidebarTimer = null;
 function saveData() {
   localStorage.setItem('wtm_tasks', JSON.stringify(tasks));
   clearTimeout(saveTimer);
   saveTimer = setTimeout(pushToCloud, 500);
+}
+function debouncedSidebar() {
+  clearTimeout(sidebarTimer);
+  sidebarTimer = setTimeout(buildSidebar, 300);
 }
 
 async function pushToCloud() {
@@ -4248,14 +4253,20 @@ function toggleSubtask(taskId, subId) {
   const sub = task.subtasks.find(s => s.id === subId);
   if (!sub) return;
   sub.completed = !sub.completed;
-  // If all subtasks done and parent, mark parent
   if (task.subtasks.every(s => s.completed)) {
     task.completed = true;
   } else {
     task.completed = false;
   }
   saveData();
-  renderContent();
+  // Update just the subtask check DOM — faster than full re-render
+  const checkEl = document.querySelector(`#sr_${subId} .subtask-check`);
+  if (checkEl) {
+    checkEl.classList.toggle('checked', sub.completed);
+    checkEl.innerHTML = sub.completed ? '<i class="fa-solid fa-check" style="font-size:8px"></i>' : '';
+    const nameEl = checkEl.parentElement.querySelector('.subtask-name');
+    if (nameEl) nameEl.classList.toggle('done', sub.completed);
+  }
   buildSidebar();
 }
 
@@ -6904,7 +6915,7 @@ let budgetData = {
   fortnightStartDay: 1,
   currentBalance: 0,          // current bank balance
   incomes: [],                // [{id, name, amount, color}]
-  bills: [],                  // [{id, name, amount, type:'fixed'|'variable', dayOfMonth, category, color}]
+  bills: [],                  // [{id, name, amount, type:'fixed'|'variable', dayOfMonth, nextDate, frequency:'monthly'|'quarterly'|'halfyearly'|'yearly'|'fortnightly', category, color, emoji}]
   savingsGoals: [],           // [{id, name, target, current, contribution, color}]
   allocations: [],            // [{id, name, percent, color}]
   transactions: []            // [{id, date, name, amount, type:'income'|'expense', category}]
@@ -6949,8 +6960,18 @@ function getTotalIncome() {
   return budgetData.incomes.reduce((a,i) => a + (parseFloat(i.amount)||0), 0);
 }
 function getTotalBills() {
-  // Fixed bills only (variable/envelope spending tracked separately)
-  return budgetData.bills.filter(b=>b.type!=='variable').reduce((a,b) => a + (parseFloat(b.amount)||0), 0);
+  // Normalise all fixed bills to fortnightly cost
+  return budgetData.bills.filter(b=>b.type!=='variable').reduce((a,b) => {
+    const amt = parseFloat(b.amount)||0;
+    const freq = b.frequency || 'monthly';
+    // Convert to per-fortnight
+    if (freq === 'fortnightly')  return a + amt;
+    if (freq === 'monthly')      return a + (amt * 12 / 26);
+    if (freq === 'quarterly')    return a + (amt * 4 / 26);
+    if (freq === 'halfyearly')   return a + (amt * 2 / 26);
+    if (freq === 'yearly')       return a + (amt / 26);
+    return a + (amt * 12 / 26); // default monthly
+  }, 0);
 }
 function getTotalVariable() {
   return budgetData.bills.filter(b=>b.type==='variable').reduce((a,b) => a + (parseFloat(b.amount)||0), 0);
@@ -6979,17 +7000,51 @@ function getFortnightDates() {
 function getUpcomingBills(days = 60) {
   const today = new Date(); today.setHours(0,0,0,0);
   const result = [];
-  for (let i = 0; i < days; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    budgetData.bills.forEach(bill => {
-      if (bill.dayOfMonth && parseInt(bill.dayOfMonth) === d.getDate()) {
-        const diff = i;
-        result.push({ ...bill, date: d.toISOString().split('T')[0], daysUntil: diff });
+
+  budgetData.bills.forEach(bill => {
+    if (bill.type === 'variable') return; // variable has no date
+
+    const freq = bill.frequency || 'monthly';
+
+    if (freq === 'monthly' && bill.dayOfMonth) {
+      // Show every month within range
+      for (let m = -1; m <= 3; m++) {
+        const d = new Date(today.getFullYear(), today.getMonth() + m, parseInt(bill.dayOfMonth));
+        const diff = Math.round((d - today) / 86400000);
+        if (diff >= 0 && diff < days) {
+          result.push({ ...bill, date: d.toISOString().split('T')[0], daysUntil: diff });
+        }
       }
-    });
-  }
+    } else if (bill.nextDate) {
+      // Irregular frequency — use nextDate and project forward
+      let next = new Date(bill.nextDate + 'T12:00:00');
+      let attempts = 0;
+      while (attempts < 20) {
+        attempts++;
+        const diff = Math.round((next - today) / 86400000);
+        if (diff < 0) {
+          // Advance to next occurrence
+          next = advanceBillDate(next, freq);
+          continue;
+        }
+        if (diff >= days) break;
+        result.push({ ...bill, date: next.toISOString().split('T')[0], daysUntil: diff });
+        next = advanceBillDate(next, freq);
+      }
+    }
+  });
+
   return result.sort((a,b) => a.daysUntil - b.daysUntil);
+}
+
+function advanceBillDate(date, freq) {
+  const d = new Date(date);
+  if (freq === 'fortnightly')  { d.setDate(d.getDate() + 14); }
+  else if (freq === 'quarterly')  { d.setMonth(d.getMonth() + 3); }
+  else if (freq === 'halfyearly') { d.setMonth(d.getMonth() + 6); }
+  else if (freq === 'yearly')     { d.setFullYear(d.getFullYear() + 1); }
+  else { d.setMonth(d.getMonth() + 1); } // monthly fallback
+  return d;
 }
 
 // ── RENDER ────────────────────────────────────────────────────
@@ -7108,6 +7163,7 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
     ${upcoming.length ? upcoming.map(b => `
       <div class="bill-item ${b.daysUntil===0?'overdue':b.daysUntil<=3?'due-soon':''}">
         <span class="bill-due-badge" style="background:${b.daysUntil===0?'var(--high-bg)':b.daysUntil<=3?'var(--med-bg)':'var(--bg3)'};color:${b.daysUntil===0?'var(--high)':b.daysUntil<=3?'var(--med)':'var(--text3)'}">${b.daysUntil===0?'TODAY':b.daysUntil===1?'TOMORROW':b.date}</span>
+        <span style="font-size:16px;flex-shrink:0">${b.emoji||'💰'}</span>
         <span class="bill-name">${escHtml(b.name)}</span>
         ${b.category ? `<span class="bill-category">${escHtml(b.category)}</span>` : ''}
         <span class="bill-amount">-${fmtAUD(b.amount)}</span>
@@ -7125,7 +7181,15 @@ function renderBudgetBills() {
       <div class="budget-section-title"><i class="fa-solid fa-calendar-check" style="color:var(--high)"></i> Fixed Bills <span style="font-size:11px;color:var(--text3);font-weight:400">(have a due date)</span></div>
       ${fixed.length ? fixed.map(b => `
         <div class="bill-item ${b.dayOfMonth?'':''}">
-          <span class="bill-due-badge" style="background:var(--high-bg);color:var(--high)">Day ${b.dayOfMonth||'?'}</span>
+          <span class="bill-due-badge" style="background:var(--high-bg);color:var(--high)">${
+            b.frequency==='quarterly'?'Quarterly':
+            b.frequency==='halfyearly'?'6-Monthly':
+            b.frequency==='yearly'?'Yearly':
+            b.frequency==='fortnightly'?'Fortnightly':
+            b.dayOfMonth?'Day '+b.dayOfMonth:'Monthly'
+          }</span>
+          ${b.nextDate&&b.frequency!=='monthly'?`<span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;flex-shrink:0">Next: ${b.nextDate}</span>`:''}
+          <span style="font-size:18px;flex-shrink:0">${b.emoji||'💰'}</span>
           <span class="bill-name">${escHtml(b.name)}</span>
           ${b.category ? `<span class="bill-category">${escHtml(b.category)}</span>` : ''}
           <span class="bill-amount">-${fmtAUD(b.amount)}</span>
@@ -7137,6 +7201,7 @@ function renderBudgetBills() {
       ${variable.length ? variable.map(b => `
         <div class="bill-item">
           <span class="bill-due-badge" style="background:var(--med-bg);color:var(--med)">Variable</span>
+          <span style="font-size:18px;flex-shrink:0">${b.emoji||'🛒'}</span>
           <span class="bill-name">${escHtml(b.name)}</span>
           ${b.category ? `<span class="bill-category">${escHtml(b.category)}</span>` : ''}
           <span class="bill-amount" style="color:var(--med)">-${fmtAUD(b.amount)}</span>
@@ -7195,28 +7260,40 @@ function renderBillsCalendar() {
   return cal;
 }
 
+function getAllocAmount(al, leftover) {
+  if (al.amountType === 'fixed') return parseFloat(al.fixedAmount)||0;
+  return leftover * ((parseFloat(al.percent)||0)/100);
+}
+function getAllocPct(al, leftover) {
+  if (al.amountType === 'fixed') return leftover > 0 ? Math.round(((parseFloat(al.fixedAmount)||0)/leftover)*100) : 0;
+  return parseFloat(al.percent)||0;
+}
+
 function renderBudgetAllocations(totalIncome, leftover) {
-  const totalPct = budgetData.allocations.reduce((a,al)=>a+(parseFloat(al.percent)||0),0);
+  const totalAllocated = budgetData.allocations.reduce((a,al)=>a+getAllocAmount(al,leftover),0);
+  const totalPct = leftover > 0 ? Math.round((totalAllocated/leftover)*100) : 0;
+  const unallocated = leftover - totalAllocated;
   return `
   <div>
-    <div class="budget-section-title"><i class="fa-solid fa-pie-chart" style="color:var(--accent)"></i> Allocations <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px">(of leftover ${fmtAUD(leftover)})</span></div>
+    <div class="budget-section-title"><i class="fa-solid fa-chart-pie" style="color:var(--accent)"></i> Allocations <span style="font-size:11px;color:var(--text3);font-weight:400;margin-left:4px">(of leftover ${fmtAUD(leftover)})</span></div>
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-      <!-- Stacked bar -->
       <div style="display:flex;height:20px;border-radius:10px;overflow:hidden;margin-bottom:16px;gap:1px">
         ${budgetData.allocations.map(al => {
-          const pct = parseFloat(al.percent)||0;
-          return `<div style="width:${pct}%;background:${al.color||'var(--accent)'};transition:width 0.4s;min-width:${pct>0?'2px':'0'}" title="${al.name}: ${pct}%"></div>`;
+          const pct = getAllocPct(al, leftover);
+          return `<div style="width:${Math.max(pct,0)}%;background:${al.color||'var(--accent)'};transition:width 0.4s;min-width:${pct>0?'2px':'0'}" title="${al.name}: ${fmtAUD(getAllocAmount(al,leftover))}"></div>`;
         }).join('')}
-        ${totalPct < 100 ? `<div style="width:${100-totalPct}%;background:var(--bg3)" title="Unallocated: ${100-totalPct}%"></div>` : ''}
+        ${totalPct < 100 ? `<div style="flex:1;background:var(--bg3)" title="Unallocated: ${fmtAUD(unallocated)}"></div>` : ''}
       </div>
       ${budgetData.allocations.map(al => {
-        const pct = parseFloat(al.percent)||0;
-        const amt = leftover * (pct/100);
+        const amt = getAllocAmount(al, leftover);
+        const pct = getAllocPct(al, leftover);
+        const isFixed = al.amountType === 'fixed';
         return `<div class="alloc-item">
           <div class="alloc-header">
             <div style="display:flex;align-items:center;gap:8px">
               <div style="width:10px;height:10px;border-radius:50%;background:${al.color||'var(--accent)'}"></div>
               <span class="alloc-name">${escHtml(al.name)}</span>
+              <span style="font-size:10px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:1px 6px;color:var(--text3)">${isFixed?'Fixed $':'% of leftover'}</span>
             </div>
             <div style="display:flex;align-items:center;gap:8px">
               <span class="alloc-amounts" style="color:var(--low)">${fmtAUD(amt)}</span>
@@ -7225,11 +7302,11 @@ function renderBudgetAllocations(totalIncome, leftover) {
               <button class="task-act-btn del" onclick="deleteAlloc('${al.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>
-          <div class="budget-progress-wrap"><div class="budget-progress-fill" style="width:${pct}%;background:${al.color||'var(--accent)'}"></div></div>
+          <div class="budget-progress-wrap"><div class="budget-progress-fill" style="width:${Math.min(pct,100)}%;background:${al.color||'var(--accent)'}"></div></div>
         </div>`;
       }).join('')}
-      ${totalPct < 100 ? `<div style="font-size:12px;color:var(--text3);margin-top:8px;font-family:'JetBrains Mono',monospace">${100-totalPct}% unallocated = ${fmtAUD(leftover*(1-totalPct/100))}</div>` : ''}
-      ${totalPct > 100 ? `<div style="font-size:12px;color:var(--high);margin-top:8px">⚠ Over-allocated by ${totalPct-100}%</div>` : ''}
+      ${unallocated > 0 ? `<div style="font-size:12px;color:var(--text3);margin-top:8px;font-family:'JetBrains Mono',monospace">Unallocated: ${fmtAUD(unallocated)} (${100-totalPct}%)</div>` : ''}
+      ${unallocated < 0 ? `<div style="font-size:12px;color:var(--high);margin-top:8px">⚠ Over-allocated by ${fmtAUD(Math.abs(unallocated))}</div>` : ''}
     </div>
     <button class="budget-add-btn" onclick="openAllocModal()"><i class="fa-solid fa-plus"></i> Add Allocation</button>
   </div>`;
@@ -7431,6 +7508,44 @@ function deleteIncome(id) {
 
 // Bills
 
+
+let currentBillEmoji = '💰';
+function toggleBillEmojiPicker(e) {
+  if (e) e.stopPropagation();
+  const picker = document.getElementById('billEmojiPicker');
+  if (picker) picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+}
+function selectBillEmoji(emoji) {
+  currentBillEmoji = emoji;
+  const btn = document.getElementById('billEmojiBtn');
+  if (btn) btn.textContent = emoji;
+  const picker = document.getElementById('billEmojiPicker');
+  if (picker) picker.style.display = 'none';
+}
+// Close picker when clicking outside
+document.addEventListener('click', e => {
+  const picker = document.getElementById('billEmojiPicker');
+  if (picker && !picker.contains(e.target) && e.target.id !== 'billEmojiBtn') {
+    picker.style.display = 'none';
+  }
+});
+
+
+function updateBillFreqFields() {
+  const freq = document.getElementById('billFrequency')?.value || 'monthly';
+  const dayGroup  = document.getElementById('billDayGroup');
+  const nextGroup = document.getElementById('billNextDateGroup');
+  if (!dayGroup || !nextGroup) return;
+  if (freq === 'monthly' || freq === 'fortnightly') {
+    dayGroup.style.display  = freq === 'monthly' ? 'block' : 'none';
+    nextGroup.style.display = freq === 'fortnightly' ? 'block' : 'none';
+  } else {
+    // quarterly, halfyearly, yearly — need next date
+    dayGroup.style.display  = 'none';
+    nextGroup.style.display = 'block';
+  }
+}
+
 let currentBillType = 'fixed';
 function setBillType(type) {
   currentBillType = type;
@@ -7453,10 +7568,13 @@ function openBillModal(id) {
   const b=id?budgetData.bills.find(b=>b.id===id):null;
   document.getElementById('budgetBillModal').style.display='flex';
   document.getElementById('billName').value    =b?.name||'';
+  currentBillEmoji = b?.emoji||'💰';
+  const emojiBtn = document.getElementById('billEmojiBtn');
+  if (emojiBtn) emojiBtn.textContent = currentBillEmoji;
   document.getElementById('billAmount').value  =b?.amount||'';
   document.getElementById('billDay').value     =b?.dayOfMonth||'1';
   document.getElementById('billCategory').value=b?.category||'';
-  setTimeout(()=>{ setBillType(b?.type||'fixed'); document.getElementById('billName').focus(); },50);
+  setTimeout(()=>{ setBillType(b?.type||'fixed'); updateBillFreqFields(); document.getElementById('billName').focus(); },50);
 }
 function closeBillModal(){document.getElementById('budgetBillModal').style.display='none';}
 function editBill(id){openBillModal(id);}
@@ -7469,9 +7587,13 @@ function saveBill(){
   if(!name||!amount){showToast('Fill in all fields');return;}
   if(currentBillEdit){
     const b=budgetData.bills.find(b=>b.id===currentBillEdit);
-    if(b){b.name=name;b.amount=parseFloat(amount);b.dayOfMonth=type==='fixed'?parseInt(day):null;b.category=category;b.type=type;}
+    const freq2=document.getElementById('billFrequency')?.value||'monthly';
+    const nextDt=document.getElementById('billNextDate')?.value||null;
+    if(b){b.name=name;b.amount=parseFloat(amount);b.dayOfMonth=(type==='fixed'&&freq2==='monthly')?parseInt(day):null;b.nextDate=(type==='fixed'&&freq2!=='monthly')?nextDt:null;b.frequency=type==='fixed'?freq2:'variable';b.category=category;b.type=type;b.emoji=currentBillEmoji;}
   } else {
-    budgetData.bills.push({id:uid(),name,amount:parseFloat(amount),dayOfMonth:type==='fixed'?parseInt(day):null,category,type});
+    const freq3=document.getElementById('billFrequency')?.value||'monthly';
+    const nextDt2=document.getElementById('billNextDate')?.value||null;
+    budgetData.bills.push({id:uid(),name,amount:parseFloat(amount),dayOfMonth:(type==='fixed'&&freq3==='monthly')?parseInt(day):null,nextDate:(type==='fixed'&&freq3!=='monthly')?nextDt2:null,frequency:type==='fixed'?freq3:'variable',category,type,emoji:currentBillEmoji});
   }
   saveBudget();closeBillModal();renderBudget();showToast('Bill saved ✓');
 }
@@ -7488,21 +7610,31 @@ function openAllocModal(id){
   document.getElementById('budgetAllocModal').style.display='flex';
   document.getElementById('allocName').value   =al?.name||'';
   document.getElementById('allocPercent').value=al?.percent||'';
+  document.getElementById('allocFixed').value  =al?.fixedAmount||'';
   document.getElementById('allocColor').value  =al?.color||'#4f8ef7';
+  const typeRadio = document.querySelector(`input[name="allocAmtType"][value="${al?.amountType||'percent'}"]`);
+  if (typeRadio) { typeRadio.checked=true; toggleAllocType(al?.amountType||'percent'); }
   setTimeout(()=>document.getElementById('allocName').focus(),50);
+}
+function toggleAllocType(type) {
+  document.getElementById('allocPercentGroup').style.display = type==='percent'?'block':'none';
+  document.getElementById('allocFixedGroup').style.display   = type==='fixed'?'block':'none';
 }
 function closeAllocModal(){document.getElementById('budgetAllocModal').style.display='none';}
 function editAlloc(id){openAllocModal(id);}
 function saveAlloc(){
   const name=document.getElementById('allocName').value.trim();
+  const amtType=document.querySelector('input[name="allocAmtType"]:checked')?.value||'percent';
   const pct=document.getElementById('allocPercent').value;
+  const fixed=document.getElementById('allocFixed').value;
   const color=document.getElementById('allocColor').value;
-  if(!name||!pct){showToast('Fill in all fields');return;}
+  if(!name||(amtType==='percent'&&!pct)||(amtType==='fixed'&&!fixed)){showToast('Fill in all fields');return;}
+  const data={name,amountType:amtType,percent:amtType==='percent'?parseFloat(pct):0,fixedAmount:amtType==='fixed'?parseFloat(fixed):0,color};
   if(currentAllocEdit){
     const al=budgetData.allocations.find(a=>a.id===currentAllocEdit);
-    if(al){al.name=name;al.percent=parseFloat(pct);al.color=color;}
+    if(al){Object.assign(al,data);}
   } else {
-    budgetData.allocations.push({id:uid(),name,percent:parseFloat(pct),color});
+    budgetData.allocations.push({id:uid(),...data});
   }
   saveBudget();closeAllocModal();renderBudget();showToast('Allocation saved ✓');
 }
@@ -8058,7 +8190,7 @@ if (isLoggedIn()) {
 
 <!-- BILL MODAL -->
 <div class="modal-overlay" id="budgetBillModal" style="display:none" onclick="if(event.target===this)closeBillModal()">
-  <div class="modal" style="width:440px">
+  <div class="modal" style="width:460px">
     <div class="modal-title"><i class="fa-solid fa-receipt" style="color:var(--high)"></i> Bill / Expense</div>
     <div class="form-group">
       <label class="form-label">Type</label>
@@ -8067,11 +8199,30 @@ if (isLoggedIn()) {
         <button id="billTypeVariable" class="subtask-add-btn" style="flex:1;background:var(--bg3);border-color:var(--border);color:var(--text3)" onclick="setBillType('variable')">🛒 Variable / Envelope</button>
       </div>
     </div>
-    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="billName" type="text" placeholder="e.g. Rent, Groceries, Netflix" onkeydown="if(event.key==='Enter')saveBill()"></div>
+    <div class="form-group">
+      <label class="form-label">Name</label>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button id="billEmojiBtn" onclick="toggleBillEmojiPicker(event)" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);width:42px;height:42px;font-size:20px;cursor:pointer;flex-shrink:0" title="Pick emoji">💰</button>
+        <input class="form-input" id="billName" type="text" placeholder="e.g. Rent, Rego, Groceries" onkeydown="if(event.key==='Enter')saveBill()" style="flex:1">
+      </div>
+      <div id="billEmojiPicker" style="display:none;flex-wrap:wrap;gap:4px;padding:10px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);margin-top:6px;max-height:140px;overflow-y:auto">
+        ${['🏠','🚗','📱','💡','💧','🛒','🍔','☕','🎬','🎮','✈️','🏥','📚','👕','💈','🐾','🏋️','🎵','💳','🏦','📺','🌐','🔑','🧾','💊','🧴','🛁','🎁','⚡','🔒'].map(e=>`<button onclick="selectBillEmoji('${e}')" style="background:none;border:none;cursor:pointer;font-size:20px;padding:3px;border-radius:4px" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='none'">${e}</button>`).join('')}
+      </div>
+    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Amount (AUD)</label><input class="form-input" id="billAmount" type="number" step="0.01" placeholder="0.00"></div>
-      <div class="form-group" id="billDayGroup"><label class="form-label">Day of Month</label><input class="form-input" id="billDay" type="number" min="1" max="31" value="1" placeholder="1-31"></div>
+      <div class="form-group" id="billFreqGroup"><label class="form-label">Frequency</label>
+        <select class="form-select" id="billFrequency" onchange="updateBillFreqFields()">
+          <option value="monthly">Monthly</option>
+          <option value="fortnightly">Fortnightly</option>
+          <option value="quarterly">Every 3 Months</option>
+          <option value="halfyearly">Every 6 Months</option>
+          <option value="yearly">Yearly</option>
+        </select>
+      </div>
     </div>
+    <div id="billDayGroup" class="form-group"><label class="form-label">Day of Month</label><input class="form-input" id="billDay" type="number" min="1" max="31" value="1" placeholder="1-31"></div>
+    <div id="billNextDateGroup" class="form-group" style="display:none"><label class="form-label">Next Due Date</label><input class="form-input" id="billNextDate" type="date"></div>
     <div class="form-group"><label class="form-label">Category (optional)</label><input class="form-input" id="billCategory" type="text" placeholder="e.g. Housing, Subscriptions, Food"></div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeBillModal()">Cancel</button><button class="btn-primary" onclick="saveBill()">Save</button></div>
   </div>
@@ -8096,13 +8247,23 @@ if (isLoggedIn()) {
 
 <!-- ALLOCATION MODAL -->
 <div class="modal-overlay" id="budgetAllocModal" style="display:none" onclick="if(event.target===this)closeAllocModal()">
-  <div class="modal" style="width:400px">
+  <div class="modal" style="width:420px">
     <div class="modal-title"><i class="fa-solid fa-chart-pie" style="color:var(--accent)"></i> Allocation</div>
     <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="allocName" type="text" placeholder="e.g. Savings, Emergency Fund, Spending"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Percentage of Leftover</label><input class="form-input" id="allocPercent" type="number" step="1" min="1" max="100" placeholder="e.g. 30"></div>
-      <div class="form-group"><label class="form-label">Colour</label><input class="form-input" id="allocColor" type="color" value="#4f8ef7" style="height:42px;cursor:pointer;padding:2px 6px"></div>
+    <div class="form-group">
+      <label class="form-label">Amount Type</label>
+      <div style="display:flex;gap:16px;margin-top:6px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text2)">
+          <input type="radio" name="allocAmtType" value="percent" checked onclick="toggleAllocType('percent')"> % of Leftover
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text2)">
+          <input type="radio" name="allocAmtType" value="fixed" onclick="toggleAllocType('fixed')"> Fixed $ Amount
+        </label>
+      </div>
     </div>
+    <div id="allocPercentGroup" class="form-group"><label class="form-label">Percentage</label><input class="form-input" id="allocPercent" type="number" step="1" min="1" max="100" placeholder="e.g. 30"></div>
+    <div id="allocFixedGroup" class="form-group" style="display:none"><label class="form-label">Fixed Amount (AUD per fortnight)</label><input class="form-input" id="allocFixed" type="number" step="0.01" placeholder="e.g. 200.00"></div>
+    <div class="form-group"><label class="form-label">Colour</label><input class="form-input" id="allocColor" type="color" value="#4f8ef7" style="height:42px;cursor:pointer;padding:2px 6px"></div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeAllocModal()">Cancel</button><button class="btn-primary" onclick="saveAlloc()">Save</button></div>
   </div>
 </div>
