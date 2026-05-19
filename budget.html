@@ -2485,6 +2485,7 @@
     display: flex;
     flex-direction: column;
     gap: 20px;
+    align-items: center;
   }
   .budget-content {
     max-width: 1100px;
@@ -2753,8 +2754,8 @@
   body { margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; }
   .budget-page { display:flex !important; position:relative; height:100vh; }
   .budget-topbar { position:sticky; top:0; z-index:10; }
-  .budget-body { align-items:center; }
-  .budget-content { max-width:1000px; width:100%; margin:0 auto; padding:0 4px; }
+  .budget-body { display:flex !important; flex-direction:column; align-items:center; }
+  .budget-content { max-width:1000px; width:100%; margin:0 auto; padding:0 16px; box-sizing:border-box; }
 
   /* Toast */
   #toast {
@@ -3288,39 +3289,45 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
 
   <!-- Projection -->
   <div>
+    <!-- Savings Projection Chart -->
     <div class="budget-section-title" style="align-items:center">
-      <i class="fa-solid fa-chart-line" style="color:var(--accent)"></i> Projection
+      <i class="fa-solid fa-piggy-bank" style="color:var(--accent)"></i> Savings Projection
       <div style="display:flex;gap:2px;margin-left:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px">
         ${[['3mo',90],['6mo',180],['1yr',365],['2yr',730]].map(([lbl,days])=>`<button onclick="setProjDays(${days})" style="background:${(budgetData.projDays||90)===days?'var(--bg2)':'none'};border:none;border-radius:3px;padding:3px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:${(budgetData.projDays||90)===days?'var(--text)':'var(--text3)'};transition:all 0.15s">${lbl}</button>`).join('')}
       </div>
     </div>
-    <div class="projection-chart" style="height:240px">
-      <canvas id="projCanvas" class="proj-canvas"></canvas>
-    </div>
-    <!-- Savings bars on overview -->
     ${(budgetData.savingsGoals||[]).length ? `
-    <div class="budget-section-title" style="margin-top:4px"><i class="fa-solid fa-piggy-bank" style="color:var(--accent)"></i> Savings Progress</div>
-    <div style="display:flex;flex-direction:column;gap:8px">
-      ${(budgetData.savingsGoals||[]).map(g => {
-        const pct = g.target > 0 ? Math.min(Math.round((g.current/g.target)*100),100) : 0;
-        const color = g.color || 'var(--accent)';
-        const req = getRequiredContribution(g);
-        const onTrack = req !== null && (g.contribution||0) >= req;
-        return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-            <span style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(g.name)}</span>
-            <div style="display:flex;align-items:center;gap:10px">
-              ${req !== null ? `<span style="font-size:11px;color:${onTrack?'var(--low)':'var(--high)'};font-weight:600">${onTrack?'✓ On track':'⚠ Behind'}</span>` : ''}
-              <span style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${color}">${fmtAUD(g.current||0)} / ${fmtAUD(g.target||0)}</span>
-              <span style="font-size:12px;color:var(--text3)">${pct}%</span>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px">
+      <div style="position:relative;height:220px;margin-bottom:16px">
+        <canvas id="projCanvas" class="proj-canvas" style="width:100%;height:100%"></canvas>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px">
+        ${(budgetData.savingsGoals||[]).map(g => {
+          const pct = g.target > 0 ? Math.min(Math.round((g.current/g.target)*100),100) : 0;
+          const color = g.color || 'var(--accent)';
+          const req = getRequiredContribution(g);
+          const onTrack = req !== null && (g.contribution||0) >= req;
+          return `<div style="flex:1;min-width:200px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+              <div style="display:flex;align-items:center;gap:6px">
+                <div style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0"></div>
+                <span style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(g.name)}</span>
+              </div>
+              <div style="text-align:right">
+                ${req !== null ? `<div style="font-size:10px;color:${onTrack?'var(--low)':'var(--high)'};font-weight:700">${onTrack?'✓ On track':'⚠ Behind'}</div>` : ''}
+                <div style="font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${color}">${fmtAUD(g.current||0)} / ${fmtAUD(g.target||0)}</div>
+              </div>
             </div>
-          </div>
-          <div class="budget-progress-wrap" style="height:8px">
-            <div class="budget-progress-fill" style="width:${pct}%;background:${color};height:8px"></div>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>` : ''}
+            <div class="budget-progress-wrap" style="height:6px">
+              <div class="budget-progress-fill" style="width:${pct}%;background:${color};height:6px"></div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:32px;text-align:center;color:var(--text3)">
+      <i class="fa-solid fa-piggy-bank" style="font-size:24px;margin-bottom:8px;display:block"></i>
+      Add savings goals to see your projection
+    </div>`}
   </div>
 
   <!-- Upcoming bills preview -->
@@ -3811,103 +3818,100 @@ function setProjDays(days) {
 function drawProjectionChart() {
   const canvas = document.getElementById('projCanvas');
   if (!canvas) return;
+  const goals = budgetData.savingsGoals || [];
+  if (!goals.length) return;
+
   const ctx = canvas.getContext('2d');
-  const W = canvas.offsetWidth; const H = canvas.offsetHeight;
+  const W = canvas.offsetWidth || canvas.parentElement?.offsetWidth || 600;
+  const H = canvas.offsetHeight || 220;
   canvas.width = W; canvas.height = H;
 
-  const totalIncome = getTotalIncome();
-  const totalBills  = getTotalBills();
-  const today = new Date();
-
   const projDays = budgetData.projDays || 90;
-  const points = [];
-  // Pre-calculate total sinking fund deduction per fortnight
-  const totalSinkingPerFn = getTotalBills() + getTotalVariable() + getTotalSavingsContrib();
-
-  let balance = budgetData.currentBalance || 0;
-  for (let i = 0; i < projDays + 1; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-    // Add fortnightly income — every 14 days from the set start date
-    const startDay = budgetData.fortnightStartDay || 1;
-    const refDate = new Date(today.getFullYear(), today.getMonth(), startDay);
-    while (refDate > d) refDate.setDate(refDate.getDate() - 14);
-    const daysSinceRef = Math.round((d - refDate) / 86400000);
-    if (daysSinceRef % 14 === 0) {
-      balance += totalIncome;
-      // Deduct all bills as sinking fund amounts each pay
-      balance -= totalSinkingPerFn;
-    }
-    points.push({ day: i, balance, date: d.toISOString().split('T')[0] });
-  }
-
-  const minB = Math.min(...points.map(p=>p.balance), 0);
-  const maxB = Math.max(...points.map(p=>p.balance), 1000);
-  const range = maxB - minB || 1;
-  const pad = { t:20, r:20, b:30, l:70 };
+  const today = new Date(); today.setHours(0,0,0,0);
+  const pad = { t:20, r:30, b:30, l:70 };
   const cw = W - pad.l - pad.r;
   const ch = H - pad.t - pad.b;
 
+  const allSeries = goals.map(g => {
+    const points = [];
+    let balance = parseFloat(g.current) || 0;
+    const contrib = parseFloat(g.contribution) || 0;
+    const target  = parseFloat(g.target) || 0;
+    const startDay = budgetData.fortnightStartDay || 1;
+    for (let i = 0; i <= projDays; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const refDate = new Date(today.getFullYear(), today.getMonth(), startDay);
+      while (refDate > d) refDate.setDate(refDate.getDate() - 14);
+      const daysSinceRef = Math.round((d - refDate) / 86400000);
+      if (i > 0 && daysSinceRef % 14 === 0) balance = Math.min(balance + contrib, target || Infinity);
+      points.push({ day: i, balance });
+    }
+    return { goal: g, points, color: g.color || '#4f8ef7' };
+  });
+
+  const allVals = allSeries.flatMap(s => s.points.map(p => p.balance));
+  const maxV = Math.max(...allVals, ...goals.map(g=>parseFloat(g.target)||0), 100);
+  const range = maxV || 1;
+
   ctx.clearRect(0,0,W,H);
 
-  // Zero line
-  const zeroY = pad.t + ch * (1 - (0 - minB)/range);
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4,4]);
-  ctx.beginPath(); ctx.moveTo(pad.l, zeroY); ctx.lineTo(W-pad.r, zeroY); ctx.stroke();
-  ctx.setLineDash([]);
-
-  // Fill gradient
-  const grad = ctx.createLinearGradient(0, pad.t, 0, H-pad.b);
-  grad.addColorStop(0, 'rgba(77,207,142,0.3)');
-  grad.addColorStop(1, 'rgba(77,207,142,0.02)');
-
-  ctx.beginPath();
-  points.forEach((p,i) => {
-    const x = pad.l + (p.day/projDays)*cw;
-    const y = pad.t + ch*(1-(p.balance-minB)/range);
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  // Grid + Y labels
+  ctx.font = '10px JetBrains Mono'; ctx.textAlign = 'right';
+  [0, 0.25, 0.5, 0.75, 1].forEach(t => {
+    const y = pad.t + ch * (1 - t);
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W-pad.r, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(138,146,164,0.7)';
+    ctx.fillText('$'+Math.round(range*t).toLocaleString(), pad.l-6, y+4);
   });
-  ctx.lineTo(pad.l+cw, H-pad.b);
-  ctx.lineTo(pad.l, H-pad.b);
-  ctx.closePath();
-  ctx.fillStyle = grad;
-  ctx.fill();
 
-  // Line
-  ctx.beginPath();
-  ctx.strokeStyle = '#4dcf8e';
-  ctx.lineWidth = 2;
-  points.forEach((p,i) => {
-    const x = pad.l + (p.day/projDays)*cw;
-    const y = pad.t + ch*(1-(p.balance-minB)/range);
-    i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  // Target dashed lines
+  goals.forEach(g => {
+    if (!g.target) return;
+    const color = g.color && !g.color.startsWith('var(') ? g.color : '#4f8ef7';
+    const y = pad.t + ch * (1 - (parseFloat(g.target)||0) / range);
+    ctx.strokeStyle = color + '60'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W-pad.r, y); ctx.stroke();
+    ctx.setLineDash([]);
   });
-  ctx.stroke();
 
-  // Y labels
-  ctx.fillStyle = 'rgba(138,146,164,0.8)';
-  ctx.font = '10px JetBrains Mono';
-  ctx.textAlign = 'right';
-  [0,0.25,0.5,0.75,1].forEach(t => {
-    const val = minB + range*t;
-    const y = pad.t + ch*(1-t);
-    ctx.fillText('$'+Math.round(val).toLocaleString(), pad.l-6, y+4);
-    ctx.strokeStyle='rgba(255,255,255,0.05)'; ctx.lineWidth=1;
-    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+  // Draw each savings line
+  allSeries.forEach(({ goal, points, color }) => {
+    const c = color.startsWith('var(') ? '#4f8ef7' : color;
+    const grad = ctx.createLinearGradient(0, pad.t, 0, H-pad.b);
+    grad.addColorStop(0, c + '35'); grad.addColorStop(1, c + '05');
+    ctx.beginPath();
+    points.forEach((p,i) => {
+      const x = pad.l + (p.day/projDays)*cw;
+      const y = pad.t + ch*(1-p.balance/range);
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.lineTo(pad.l+cw, H-pad.b); ctx.lineTo(pad.l, H-pad.b);
+    ctx.closePath(); ctx.fillStyle = grad; ctx.fill();
+    ctx.beginPath(); ctx.strokeStyle = c; ctx.lineWidth = 2.5;
+    points.forEach((p,i) => {
+      const x = pad.l + (p.day/projDays)*cw;
+      const y = pad.t + ch*(1-p.balance/range);
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+    // End dot
+    const last = points[points.length-1];
+    const ex = pad.l + cw;
+    const ey = pad.t + ch*(1-last.balance/range);
+    ctx.beginPath(); ctx.arc(ex, ey, 4, 0, Math.PI*2);
+    ctx.fillStyle = c; ctx.fill();
   });
 
   // X labels
-  ctx.textAlign = 'center';
-  ctx.fillStyle = 'rgba(138,146,164,0.8)';
+  ctx.textAlign = 'center'; ctx.fillStyle = 'rgba(138,146,164,0.8)'; ctx.font = '10px JetBrains Mono';
   const labelCount = projDays <= 90 ? 4 : projDays <= 180 ? 6 : projDays <= 365 ? 12 : 8;
   for (let li = 0; li <= labelCount; li++) {
-    const day = Math.round((li / labelCount) * projDays);
-    const d = new Date(today); d.setDate(today.getDate() + day);
+    const day = Math.round((li/labelCount)*projDays);
+    const d = new Date(today); d.setDate(today.getDate()+day);
     const lbl = d.toLocaleString('en-AU', projDays > 365 ? {month:'short',year:'2-digit'} : {month:'short',day:'numeric'});
-    const x = pad.l + (day/projDays)*cw;
-    ctx.fillText(lbl, x, H-6);
+    ctx.fillText(lbl, pad.l + (day/projDays)*cw, H-6);
   }
 }
 
