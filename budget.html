@@ -2804,8 +2804,8 @@
     <div class="budget-nav">
       <button class="budget-nav-btn active" onclick="setBudgetTab('overview');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-gauge" style="margin-right:4px"></i>Overview</button>
       <button class="budget-nav-btn" onclick="setBudgetTab('bills');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-receipt" style="margin-right:4px"></i>Bills</button>
-      <button class="budget-nav-btn" onclick="setBudgetTab('allocations');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-chart-pie" style="margin-right:4px"></i>Allocations</button>
       <button class="budget-nav-btn" onclick="setBudgetTab('savings');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-piggy-bank" style="margin-right:4px"></i>Savings</button>
+      <button class="budget-nav-btn" onclick="setBudgetTab('debt');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-hand-holding-dollar" style="margin-right:4px"></i>Debt</button>
       <button class="budget-nav-btn" onclick="setBudgetTab('history');document.querySelectorAll('.budget-nav-btn').forEach(b=>b.classList.remove('active'));this.classList.add('active')"><i class="fa-solid fa-clock-rotate-left" style="margin-right:4px"></i>History</button>
     </div>
   </div>
@@ -3029,7 +3029,8 @@ let budgetData = {
   bills: [],                  // [{id, name, amount, type:'fixed'|'variable', dayOfMonth, nextDate, frequency:'monthly'|'quarterly'|'halfyearly'|'yearly'|'fortnightly', category, color, emoji}]
   savingsGoals: [],           // [{id, name, target, current, contribution, color}]
   allocations: [],            // [{id, name, percent, color}]
-  transactions: []            // [{id, date, name, amount, type:'income'|'expense', category}]
+  transactions: [],           // [{id, date, name, amount, type:'income'|'expense', category}]
+  debts: []                   // [{id, name, total, current, payPerFortnight, payments:[{id,date,amount,note}], color}]
 };
 try {
   const saved = JSON.parse(localStorage.getItem('wtm_budget') || 'null');
@@ -3171,8 +3172,8 @@ function renderBudget() {
   let tabHtml = '';
   if (budgetTab === 'overview') tabHtml = renderBudgetOverview(totalIncome, totalBills, leftover, pct);
   else if (budgetTab === 'bills') tabHtml = renderBudgetBills();
-  else if (budgetTab === 'allocations') tabHtml = renderBudgetAllocations(totalIncome, leftover);
   else if (budgetTab === 'savings') tabHtml = renderBudgetSavings(leftover);
+  else if (budgetTab === 'debt') tabHtml = renderBudgetDebt();
   else if (budgetTab === 'history') tabHtml = renderBudgetHistory();
   body.innerHTML = `<div class="budget-content">${tabHtml}</div>`;
 
@@ -3189,7 +3190,8 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
 
   const totalVariable = getTotalVariable();
   const totalSavingsC = getTotalSavingsContrib();
-  const trueLeftover  = leftover - totalVariable - totalSavingsC;
+  const totalDebtPay  = getTotalDebtPayments();
+  const trueLeftover  = leftover - totalVariable - totalSavingsC - totalDebtPay;
   const trueColor     = trueLeftover >= 0 ? 'var(--low)' : 'var(--high)';
 
   return `
@@ -3236,7 +3238,7 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
     <div class="budget-card" style="border-left:3px solid ${trueColor};grid-column:span 2 / auto">
       <div class="budget-card-label">True Leftover (spending money)</div>
       <div class="budget-card-value" style="color:${trueColor}">${trueLeftover>=0?'':'-'}${fmtAUD(trueLeftover)}</div>
-      <div class="budget-card-sub">after all deductions</div>
+      <div class="budget-card-sub">bills + variable + savings + debt</div>
       <div class="budget-progress-wrap" style="margin-top:8px">
         <div class="budget-progress-fill" style="width:${Math.min(Math.round((totalBills+totalVariable+totalSavingsC)/totalIncome*100)||0,100)}%;background:${barColor}"></div>
       </div>
@@ -3244,7 +3246,7 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
     <div class="budget-card" style="border-left:3px solid var(--uni);grid-column:span 2 / auto">
       <div class="budget-card-label">Set Aside This Pay</div>
       <div class="budget-card-value" style="color:var(--uni)">${fmtAUD(totalBills+totalVariable+totalSavingsC)}</div>
-      <div class="budget-card-sub" style="margin-top:4px">
+      <div class="budget-card-sub" style="margin-top:4px;max-height:180px;overflow-y:auto">
         ${budgetData.bills.filter(b=>b.type!=='variable').map(b => {
           const fn = billPerFortnight(b);
           return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--border)">
@@ -3261,6 +3263,11 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
           <div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--border)">
             <span>🐷 ${escHtml(g.name)}</span>
             <span style="font-family:'JetBrains Mono',monospace;color:var(--accent);white-space:nowrap">${fmtAUD(g.contribution||0)}</span>
+          </div>`).join('')}
+        ${(budgetData.debts||[]).map(d => `
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--border)">
+            <span>💳 ${escHtml(d.name)}</span>
+            <span style="font-family:'JetBrains Mono',monospace;color:var(--high);white-space:nowrap">${fmtAUD(d.payPerFortnight||0)}</span>
           </div>`).join('')}
       </div>
     </div>
@@ -3571,6 +3578,185 @@ function renderBudgetSavings(leftover) {
     }).join('') : `<div style="color:var(--text3);font-size:13px;padding:16px 0">No savings goals yet. Add one below.</div>`}
     <button class="budget-add-btn" onclick="openSavingsModal()"><i class="fa-solid fa-plus"></i> Add Savings Goal</button>
   </div>`;
+}
+
+
+// ============================================================
+// DEBT TRACKER
+// ============================================================
+function getTotalDebt() {
+  return (budgetData.debts||[]).reduce((a,d) => a + (parseFloat(d.current)||0), 0);
+}
+function getTotalDebtPayments() {
+  return (budgetData.debts||[]).reduce((a,d) => a + (parseFloat(d.payPerFortnight)||0), 0);
+}
+
+function renderBudgetDebt() {
+  const debts = budgetData.debts || [];
+  const totalOwed = getTotalDebt();
+  const totalPaying = getTotalDebtPayments();
+
+  return `
+  <div>
+    <div class="budget-section-title"><i class="fa-solid fa-hand-holding-dollar" style="color:var(--high)"></i> Debt Tracker</div>
+
+    <!-- Summary -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+      <div class="budget-card" style="border-left:3px solid var(--high)">
+        <div class="budget-card-label">Total Owed</div>
+        <div class="budget-card-value" style="color:var(--high)">${fmtAUD(totalOwed)}</div>
+        <div class="budget-card-sub">${debts.length} debt${debts.length!==1?'s':''}</div>
+      </div>
+      <div class="budget-card" style="border-left:3px solid var(--med)">
+        <div class="budget-card-label">Paying / Fortnight</div>
+        <div class="budget-card-value" style="color:var(--med)">${fmtAUD(totalPaying)}</div>
+        <div class="budget-card-sub">across all debts</div>
+      </div>
+      <div class="budget-card" style="border-left:3px solid var(--low)">
+        <div class="budget-card-label">Est. Debt Free</div>
+        <div class="budget-card-value" style="font-size:16px;color:var(--low)">${(() => {
+          if (!totalPaying || !totalOwed) return '—';
+          const fns = Math.ceil(totalOwed / totalPaying);
+          const d = new Date(); d.setDate(d.getDate() + fns * 14);
+          return d.toLocaleDateString('en-AU',{month:'short',year:'numeric'});
+        })()}</div>
+        <div class="budget-card-sub">at current rate</div>
+      </div>
+    </div>
+
+    <!-- Debt cards -->
+    ${debts.length ? debts.map(d => {
+      const pct = d.total > 0 ? Math.min(Math.round(((d.total - d.current) / d.total) * 100), 100) : 0;
+      const fnsLeft = d.payPerFortnight > 0 ? Math.ceil((d.current||0) / d.payPerFortnight) : null;
+      const color = d.color || 'var(--high)';
+      const recentPayments = (d.payments||[]).slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3);
+      return `<div class="budget-card" style="border-left:3px solid ${color};margin-bottom:12px">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:800;color:var(--text);line-height:1.5">${escHtml(d.name)}</div>
+            <div style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:2px">
+              ${fmtAUD(d.current||0)} remaining of ${fmtAUD(d.total||0)}
+            </div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${color}">${pct}%</div>
+            <div style="font-size:11px;color:var(--text3)">paid off</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <button class="task-act-btn" onclick="editDebt('${d.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
+            <button class="task-act-btn del" onclick="deleteDebt('${d.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+          </div>
+        </div>
+
+        <!-- Progress bar -->
+        <div class="budget-progress-wrap" style="height:10px;margin-bottom:12px;background:var(--high-bg)">
+          <div class="budget-progress-fill" style="width:${pct}%;background:${color};height:10px"></div>
+        </div>
+
+        <!-- Stats -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+          <div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Per Fortnight</div>
+            <div style="font-size:14px;font-weight:700;color:var(--med);font-family:'JetBrains Mono',monospace;margin-top:2px">${fmtAUD(d.payPerFortnight||0)}</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Fortnights Left</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text2);font-family:'JetBrains Mono',monospace;margin-top:2px">${fnsLeft||'—'}</div>
+          </div>
+          <div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Est. Paid Off</div>
+            <div style="font-size:12px;font-weight:700;color:var(--low);font-family:'JetBrains Mono',monospace;margin-top:2px">${fnsLeft ? (() => { const dt=new Date(); dt.setDate(dt.getDate()+fnsLeft*14); return dt.toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}); })() : '—'}</div>
+          </div>
+        </div>
+
+        <!-- One-off payments log -->
+        ${recentPayments.length ? `
+        <div style="margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--text3);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:6px">Recent Payments</div>
+          ${recentPayments.map(p => `
+            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-size:12px">
+              <span style="font-family:'JetBrains Mono',monospace;color:var(--text3);flex-shrink:0">${p.date}</span>
+              <span style="flex:1;color:var(--text2)">${escHtml(p.note||'Payment')}</span>
+              <span style="font-family:'JetBrains Mono',monospace;color:var(--low);font-weight:700">-${fmtAUD(p.amount)}</span>
+              <button class="task-act-btn del" onclick="deleteDebtPayment('${d.id}','${p.id}')" style="font-size:10px"><i class="fa-solid fa-xmark"></i></button>
+            </div>`).join('')}
+        </div>` : ''}
+
+        <!-- Log payment -->
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+          <input type="number" step="0.01" placeholder="Amount…" id="debtPay_${d.id}"
+            style="width:110px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-family:'Inter',sans-serif;font-size:12px;color:var(--text);outline:none"
+            onkeydown="if(event.key==='Enter')logDebtPayment('${d.id}')">
+          <input type="text" placeholder="Note (optional)…" id="debtNote_${d.id}"
+            style="flex:1;min-width:100px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-family:'Inter',sans-serif;font-size:12px;color:var(--text);outline:none"
+            onkeydown="if(event.key==='Enter')logDebtPayment('${d.id}')">
+          <button class="subtask-add-btn" onclick="logDebtPayment('${d.id}')" style="font-size:12px;white-space:nowrap">Log Payment</button>
+        </div>
+      </div>`;
+    }).join('') : `<div style="color:var(--text3);font-size:13px;padding:16px 0">No debts added. Add one below to track your repayments.</div>`}
+
+    <button class="budget-add-btn" onclick="openDebtModal()"><i class="fa-solid fa-plus"></i> Add Debt</button>
+  </div>`;
+}
+
+// ── DEBT CRUD ─────────────────────────────────────────────────
+let currentDebtEdit = null;
+function openDebtModal(id) {
+  currentDebtEdit = id || null;
+  const d = id ? (budgetData.debts||[]).find(d=>d.id===id) : null;
+  document.getElementById('budgetDebtModal').style.display = 'flex';
+  document.getElementById('debtName').value          = d?.name||'';
+  document.getElementById('debtTotal').value         = d?.total||'';
+  document.getElementById('debtCurrent').value       = d?.current||'';
+  document.getElementById('debtPayFn').value         = d?.payPerFortnight||'';
+  document.getElementById('debtColor').value         = d?.color||'#f05d5d';
+  setTimeout(()=>document.getElementById('debtName').focus(),50);
+}
+function closeDebtModal() { document.getElementById('budgetDebtModal').style.display='none'; }
+function editDebt(id) { openDebtModal(id); }
+function saveDebt() {
+  const name  = document.getElementById('debtName').value.trim();
+  const total = parseFloat(document.getElementById('debtTotal').value)||0;
+  const current = parseFloat(document.getElementById('debtCurrent').value)||0;
+  const payFn = parseFloat(document.getElementById('debtPayFn').value)||0;
+  const color = document.getElementById('debtColor').value;
+  if (!name) { document.getElementById('debtName').focus(); return; }
+  if (!budgetData.debts) budgetData.debts = [];
+  if (currentDebtEdit) {
+    const d = budgetData.debts.find(d=>d.id===currentDebtEdit);
+    if (d) { d.name=name; d.total=total; d.current=current; d.payPerFortnight=payFn; d.color=color; }
+  } else {
+    budgetData.debts.push({id:uid(),name,total,current,payPerFortnight:payFn,color,payments:[]});
+  }
+  saveBudget(); closeDebtModal(); renderBudget(); showToast('Debt saved ✓');
+}
+function deleteDebt(id) {
+  if (!confirm('Delete this debt?')) return;
+  budgetData.debts = (budgetData.debts||[]).filter(d=>d.id!==id);
+  saveBudget(); renderBudget();
+}
+function logDebtPayment(debtId) {
+  const amtEl  = document.getElementById('debtPay_'  + debtId);
+  const noteEl = document.getElementById('debtNote_' + debtId);
+  if (!amtEl) return;
+  const amount = parseFloat(amtEl.value);
+  if (!amount || amount <= 0) return;
+  const note = noteEl?.value.trim() || 'Payment';
+  const d = (budgetData.debts||[]).find(d=>d.id===debtId);
+  if (!d) return;
+  if (!d.payments) d.payments = [];
+  d.payments.push({ id:uid(), date:getTodayDate(), amount, note });
+  d.current = Math.max((d.current||0) - amount, 0);
+  amtEl.value = ''; if (noteEl) noteEl.value = '';
+  saveBudget(); renderBudget(); showToast(fmtAUD(amount) + ' logged ✓');
+}
+function deleteDebtPayment(debtId, payId) {
+  const d = (budgetData.debts||[]).find(d=>d.id===debtId);
+  if (!d) return;
+  const pay = (d.payments||[]).find(p=>p.id===payId);
+  if (pay) d.current = Math.min((d.current||0) + pay.amount, d.total||0);
+  d.payments = (d.payments||[]).filter(p=>p.id!==payId);
+  saveBudget(); renderBudget();
 }
 
 function renderBudgetHistory() {
@@ -4019,6 +4205,7 @@ document.addEventListener('keydown', e => {
     closeAllocModal && closeAllocModal();
     closeTransModal && closeTransModal();
     closeSavingsModal && closeSavingsModal();
+    closeDebtModal && closeDebtModal();
   }
 });
 
@@ -4032,5 +4219,22 @@ document.addEventListener('click', e => {
 
 initBudgetApp();
 </script>
+<!-- DEBT MODAL -->
+<div class="modal-overlay" id="budgetDebtModal" style="display:none" onclick="if(event.target===this)closeDebtModal()">
+  <div class="modal" style="width:440px">
+    <div class="modal-title"><i class="fa-solid fa-hand-holding-dollar" style="color:var(--high)"></i> Debt</div>
+    <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="debtName" type="text" placeholder="e.g. Car Loan, Credit Card, HECS" onkeydown="if(event.key==='Enter')saveDebt()"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Original Total</label><input class="form-input" id="debtTotal" type="number" step="0.01" placeholder="e.g. 5000"></div>
+      <div class="form-group"><label class="form-label">Current Balance</label><input class="form-input" id="debtCurrent" type="number" step="0.01" placeholder="Amount still owed"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Pay / Fortnight</label><input class="form-input" id="debtPayFn" type="number" step="0.01" placeholder="e.g. 100"></div>
+      <div class="form-group"><label class="form-label">Colour</label><input class="form-input" id="debtColor" type="color" value="#f05d5d" style="height:42px;cursor:pointer;padding:2px 6px"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeDebtModal()">Cancel</button><button class="btn-primary" onclick="saveDebt()">Save</button></div>
+  </div>
+</div>
+
 </body>
 </html>
