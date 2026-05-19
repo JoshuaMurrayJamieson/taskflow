@@ -2812,6 +2812,9 @@
 
 <div id="toast"></div>
 
+<!-- EMOJI PICKER — built once, shared, positioned absolutely -->
+<div id="billEmojiPicker" style="display:none;position:fixed;z-index:9999;flex-wrap:wrap;gap:4px;padding:10px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius-sm);max-height:160px;overflow-y:auto;box-shadow:0 8px 24px rgba(0,0,0,0.4);width:260px"></div>
+
 <!-- All budget modals -->
 
 <div class="modal-overlay" id="budgetIncomeModal" style="display:none" onclick="if(event.target===this)closeIncomeModal()">
@@ -2843,9 +2846,7 @@
         <button id="billEmojiBtn" onclick="toggleBillEmojiPicker(event)" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);width:42px;height:42px;font-size:20px;cursor:pointer;flex-shrink:0" title="Pick emoji">💰</button>
         <input class="form-input" id="billName" type="text" placeholder="e.g. Rent, Rego, Groceries" onkeydown="if(event.key==='Enter')saveBill()" style="flex:1">
       </div>
-      <div id="billEmojiPicker" style="display:none;flex-wrap:wrap;gap:4px;padding:10px;background:var(--bg3);border:1px solid var(--border2);border-radius:var(--radius-sm);margin-top:6px;max-height:140px;overflow-y:auto">
-        ${['🏠','🚗','📱','💡','💧','🛒','🍔','☕','🎬','🎮','✈️','🏥','📚','👕','💈','🐾','🏋️','🎵','💳','🏦','📺','🌐','🔑','🧾','💊','🧴','🛁','🎁','⚡','🔒'].map(e=>`<button onclick="selectBillEmoji('${e}')" style="background:none;border:none;cursor:pointer;font-size:20px;padding:3px;border-radius:4px" onmouseover="this.style.background='var(--border)'" onmouseout="this.style.background='none'">${e}</button>`).join('')}
-      </div>
+
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Amount (AUD)</label><input class="form-input" id="billAmount" type="number" step="0.01" placeholder="0.00"></div>
@@ -3615,10 +3616,43 @@ function deleteIncome(id) {
 
 
 let currentBillEmoji = '💰';
+const BILL_EMOJIS = ['🏠','🚗','📱','💡','💧','🛒','🍔','☕','🎬','🎮','✈️','🏥','📚','👕','💈','🐾','🏋️','🎵','💳','🏦','📺','🌐','🔑','🧾','💊','🧴','🛁','🎁','⚡','🔒','💰'];
+
+// Build emoji picker once on load
+document.addEventListener('DOMContentLoaded', () => {
+  const picker = document.getElementById('billEmojiPicker');
+  if (!picker) return;
+  // Use event delegation — one listener, not 30
+  picker.innerHTML = BILL_EMOJIS.map(em =>
+    `<span class="epick-btn" data-emoji="${em}" style="cursor:pointer;font-size:20px;padding:4px;border-radius:4px;line-height:1;display:inline-block">${em}</span>`
+  ).join('');
+  picker.addEventListener('click', e => {
+    const btn = e.target.closest('.epick-btn');
+    if (btn) selectBillEmoji(btn.dataset.emoji);
+  });
+  picker.addEventListener('mouseover', e => {
+    const btn = e.target.closest('.epick-btn');
+    if (btn) btn.style.background = 'var(--border)';
+  });
+  picker.addEventListener('mouseout', e => {
+    const btn = e.target.closest('.epick-btn');
+    if (btn) btn.style.background = 'none';
+  });
+});
+
 function toggleBillEmojiPicker(e) {
   if (e) e.stopPropagation();
   const picker = document.getElementById('billEmojiPicker');
-  if (picker) picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+  if (!picker) return;
+  if (picker.style.display !== 'none') { picker.style.display = 'none'; return; }
+  // Position near the emoji button
+  const btn = document.getElementById('billEmojiBtn');
+  if (btn) {
+    const rect = btn.getBoundingClientRect();
+    picker.style.top  = (rect.bottom + 6) + 'px';
+    picker.style.left = rect.left + 'px';
+  }
+  picker.style.display = 'flex';
 }
 function selectBillEmoji(emoji) {
   currentBillEmoji = emoji;
