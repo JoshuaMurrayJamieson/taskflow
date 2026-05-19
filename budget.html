@@ -3070,19 +3070,19 @@ function fmtAUD(n) {
 function getTotalIncome() {
   return budgetData.incomes.reduce((a,i) => a + (parseFloat(i.amount)||0), 0);
 }
+function billPerFortnight(b) {
+  const amt  = parseFloat(b.amount) || 0;
+  const freq = b.frequency || 'monthly';
+  if (freq === 'fortnightly')  return amt;
+  if (freq === 'monthly')      return amt * 12 / 26;
+  if (freq === 'quarterly')    return amt * 4  / 26;
+  if (freq === 'halfyearly')   return amt * 2  / 26;
+  if (freq === 'yearly')       return amt      / 26;
+  return amt * 12 / 26;
+}
+
 function getTotalBills() {
-  // Normalise all fixed bills to fortnightly cost
-  return budgetData.bills.filter(b=>b.type!=='variable').reduce((a,b) => {
-    const amt = parseFloat(b.amount)||0;
-    const freq = b.frequency || 'monthly';
-    // Convert to per-fortnight
-    if (freq === 'fortnightly')  return a + amt;
-    if (freq === 'monthly')      return a + (amt * 12 / 26);
-    if (freq === 'quarterly')    return a + (amt * 4 / 26);
-    if (freq === 'halfyearly')   return a + (amt * 2 / 26);
-    if (freq === 'yearly')       return a + (amt / 26);
-    return a + (amt * 12 / 26); // default monthly
-  }, 0);
+  return budgetData.bills.filter(b=>b.type!=='variable').reduce((a,b) => a + billPerFortnight(b), 0);
 }
 function getTotalVariable() {
   return budgetData.bills.filter(b=>b.type==='variable').reduce((a,b) => a + (parseFloat(b.amount)||0), 0);
@@ -3233,16 +3233,35 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
       <div class="budget-card-value" style="color:var(--accent)">${fmtAUD(totalSavingsC)}</div>
       <div class="budget-card-sub">${(budgetData.savingsGoals||[]).length} goal${(budgetData.savingsGoals||[]).length!==1?'s':''}</div>
     </div>
-    <div class="budget-card" style="border-left:3px solid ${trueColor};grid-column:span 4 / auto">
-      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
-        <div>
-          <div class="budget-card-label">True Leftover (spending money)</div>
-          <div class="budget-card-value" style="color:${trueColor}">${trueLeftover>=0?'':'-'}${fmtAUD(trueLeftover)}</div>
-          <div class="budget-card-sub">after bills + variable + savings</div>
-        </div>
-        <div class="budget-progress-wrap" style="flex:1;min-width:200px;height:10px;margin-top:0">
-          <div class="budget-progress-fill" style="width:${Math.min(Math.round((totalBills+totalVariable+totalSavingsC)/totalIncome*100)||0,100)}%;background:${barColor};height:10px"></div>
-        </div>
+    <div class="budget-card" style="border-left:3px solid ${trueColor};grid-column:span 2 / auto">
+      <div class="budget-card-label">True Leftover (spending money)</div>
+      <div class="budget-card-value" style="color:${trueColor}">${trueLeftover>=0?'':'-'}${fmtAUD(trueLeftover)}</div>
+      <div class="budget-card-sub">after all deductions</div>
+      <div class="budget-progress-wrap" style="margin-top:8px">
+        <div class="budget-progress-fill" style="width:${Math.min(Math.round((totalBills+totalVariable+totalSavingsC)/totalIncome*100)||0,100)}%;background:${barColor}"></div>
+      </div>
+    </div>
+    <div class="budget-card" style="border-left:3px solid var(--uni);grid-column:span 2 / auto">
+      <div class="budget-card-label">Set Aside This Pay</div>
+      <div class="budget-card-value" style="color:var(--uni)">${fmtAUD(totalBills+totalVariable+totalSavingsC)}</div>
+      <div class="budget-card-sub" style="margin-top:4px">
+        ${budgetData.bills.filter(b=>b.type!=='variable').map(b => {
+          const fn = billPerFortnight(b);
+          return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--border)">
+            <span>${b.emoji||'💰'} ${escHtml(b.name)}</span>
+            <span style="font-family:'JetBrains Mono',monospace;color:var(--high);white-space:nowrap">${fmtAUD(fn)}</span>
+          </div>`;
+        }).join('')}
+        ${budgetData.bills.filter(b=>b.type==='variable').map(b => `
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--border)">
+            <span>${b.emoji||'🛒'} ${escHtml(b.name)}</span>
+            <span style="font-family:'JetBrains Mono',monospace;color:var(--med);white-space:nowrap">${fmtAUD(parseFloat(b.amount)||0)}</span>
+          </div>`).join('')}
+        ${(budgetData.savingsGoals||[]).map(g => `
+          <div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0;border-bottom:1px solid var(--border)">
+            <span>🐷 ${escHtml(g.name)}</span>
+            <span style="font-family:'JetBrains Mono',monospace;color:var(--accent);white-space:nowrap">${fmtAUD(g.contribution||0)}</span>
+          </div>`).join('')}
       </div>
     </div>
   </div>
@@ -3332,7 +3351,10 @@ function renderBudgetBills() {
           <span style="font-size:18px;flex-shrink:0">${b.emoji||'💰'}</span>
           <span class="bill-name">${escHtml(b.name)}</span>
           ${b.category ? `<span class="bill-category">${escHtml(b.category)}</span>` : ''}
-          <span class="bill-amount">-${fmtAUD(b.amount)}</span>
+          <div style="text-align:right">
+            <div class="bill-amount">-${fmtAUD(b.amount)}</div>
+            <div style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">${fmtAUD(billPerFortnight(b))}/fn</div>
+          </div>
           <button class="task-act-btn" onclick="editBill('${b.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
           <button class="task-act-btn del" onclick="deleteBill('${b.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
         </div>`).join('') : `<div style="color:var(--text3);font-size:13px;padding:8px 0">No fixed bills yet.</div>`}
@@ -3588,22 +3610,23 @@ function drawProjectionChart() {
 
   const projDays = budgetData.projDays || 90;
   const points = [];
+  // Pre-calculate total sinking fund deduction per fortnight
+  const totalSinkingPerFn = getTotalBills() + getTotalVariable() + getTotalSavingsContrib();
+
   let balance = budgetData.currentBalance || 0;
   for (let i = 0; i < projDays + 1; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
-    const dom = d.getDate();
     // Add fortnightly income — every 14 days from the set start date
     const startDay = budgetData.fortnightStartDay || 1;
     const refDate = new Date(today.getFullYear(), today.getMonth(), startDay);
-    // Find nearest past pay date
     while (refDate > d) refDate.setDate(refDate.getDate() - 14);
     const daysSinceRef = Math.round((d - refDate) / 86400000);
-    if (daysSinceRef % 14 === 0) { balance += totalIncome; }
-    // Deduct bills on their day
-    budgetData.bills.forEach(b => {
-      if (parseInt(b.dayOfMonth) === dom) balance -= parseFloat(b.amount)||0;
-    });
+    if (daysSinceRef % 14 === 0) {
+      balance += totalIncome;
+      // Deduct all bills as sinking fund amounts each pay
+      balance -= totalSinkingPerFn;
+    }
     points.push({ day: i, balance, date: d.toISOString().split('T')[0] });
   }
 
