@@ -3075,11 +3075,11 @@ function billPerFortnight(b) {
   const amt  = parseFloat(b.amount) || 0;
   const freq = b.frequency || 'monthly';
   if (freq === 'fortnightly')  return amt;
-  if (freq === 'monthly')      return amt * 12 / 26;
-  if (freq === 'quarterly')    return amt * 4  / 26;
-  if (freq === 'halfyearly')   return amt * 2  / 26;
-  if (freq === 'yearly')       return amt      / 26;
-  return amt * 12 / 26;
+  if (freq === 'monthly')      return amt / 2;
+  if (freq === 'quarterly')    return amt / 6;
+  if (freq === 'halfyearly')   return amt / 13;
+  if (freq === 'yearly')       return amt / 26;
+  return amt / 2;
 }
 
 function getTotalBills() {
