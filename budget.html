@@ -3030,7 +3030,7 @@ let budgetData = {
   savingsGoals: [],           // [{id, name, target, current, contribution, color}]
   allocations: [],            // [{id, name, percent, color}]
   transactions: [],           // [{id, date, name, amount, type:'income'|'expense', category}]
-  debts: []                   // [{id, name, total, current, payPerFortnight, payments:[{id,date,amount,note}], color}]
+  debts: []                   // [{id, name, total, current, payPerFortnight, payFrequency, startDate, endDate, totalPayments, payments:[{id,date,amount,note}], color}]
 };
 try {
   const saved = JSON.parse(localStorage.getItem('wtm_budget') || 'null');
@@ -3588,7 +3588,7 @@ function getTotalDebt() {
   return (budgetData.debts||[]).reduce((a,d) => a + (parseFloat(d.current)||0), 0);
 }
 function getTotalDebtPayments() {
-  return (budgetData.debts||[]).reduce((a,d) => a + (parseFloat(d.payPerFortnight)||0), 0);
+  return (budgetData.debts||[]).reduce((a,d) => a + debtPerFortnight(d), 0);
 }
 
 function renderBudgetDebt() {
@@ -3657,18 +3657,25 @@ function renderBudgetDebt() {
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
           <div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border)">
             <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Per Fortnight</div>
-            <div style="font-size:14px;font-weight:700;color:var(--med);font-family:'JetBrains Mono',monospace;margin-top:2px">${fmtAUD(d.payPerFortnight||0)}</div>
+            <div style="font-size:14px;font-weight:700;color:var(--med);font-family:'JetBrains Mono',monospace;margin-top:2px">${fmtAUD(debtPerFortnight(d))}</div>
+            ${d.payFrequency && d.payFrequency!=='fortnightly'?`<div style="font-size:10px;color:var(--text3)">${fmtAUD(d.payPerFortnight||0)}/${d.payFrequency}</div>`:''}
           </div>
           <div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border)">
             <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Fortnights Left</div>
             <div style="font-size:14px;font-weight:700;color:var(--text2);font-family:'JetBrains Mono',monospace;margin-top:2px">${fnsLeft||'—'}</div>
           </div>
           <div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border)">
-            <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Est. Paid Off</div>
-            <div style="font-size:12px;font-weight:700;color:var(--low);font-family:'JetBrains Mono',monospace;margin-top:2px">${fnsLeft ? (() => { const dt=new Date(); dt.setDate(dt.getDate()+fnsLeft*14); return dt.toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}); })() : '—'}</div>
+            <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">${d.endDate?'End Date':'Est. Paid Off'}</div>
+            <div style="font-size:12px;font-weight:700;color:var(--low);font-family:'JetBrains Mono',monospace;margin-top:2px">${d.endDate || (fnsLeft ? (() => { const dt=new Date(); dt.setDate(dt.getDate()+fnsLeft*14); return dt.toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}); })() : '—')}</div>
           </div>
         </div>
 
+        <!-- Extra stats -->
+        ${(d.startDate || d.totalPayments) ? `<div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          ${d.startDate?`<div style="background:var(--bg3);border-radius:6px;padding:6px 10px;border:1px solid var(--border);font-size:11px;color:var(--text3)">Started: <strong style="color:var(--text2)">${d.startDate}</strong></div>`:''}
+          ${d.totalPayments?`<div style="background:var(--bg3);border-radius:6px;padding:6px 10px;border:1px solid var(--border);font-size:11px;color:var(--text3)">Payments: <strong style="color:var(--text2)">${(d.payments||[]).length} of ${d.totalPayments}</strong></div>`:''}
+          ${d.totalPayments?`<div style="background:var(--bg3);border-radius:6px;padding:6px 10px;border:1px solid var(--border);font-size:11px;color:var(--text3)">Remaining: <strong style="color:var(--med)">${d.totalPayments-(d.payments||[]).length} payments</strong></div>`:''}
+        </div>` : ''}
         <!-- One-off payments log -->
         ${recentPayments.length ? `
         <div style="margin-bottom:10px">
@@ -3701,6 +3708,15 @@ function renderBudgetDebt() {
 
 // ── DEBT CRUD ─────────────────────────────────────────────────
 let currentDebtEdit = null;
+function debtPerFortnight(d) {
+  const amt  = parseFloat(d.payPerFortnight) || 0;
+  const freq = d.payFrequency || 'fortnightly';
+  if (freq === 'fortnightly') return amt;
+  if (freq === 'monthly')     return amt / 2;
+  if (freq === 'weekly')      return amt * 2;
+  return amt;
+}
+
 function openDebtModal(id) {
   currentDebtEdit = id || null;
   const d = id ? (budgetData.debts||[]).find(d=>d.id===id) : null;
@@ -3709,24 +3725,33 @@ function openDebtModal(id) {
   document.getElementById('debtTotal').value         = d?.total||'';
   document.getElementById('debtCurrent').value       = d?.current||'';
   document.getElementById('debtPayFn').value         = d?.payPerFortnight||'';
+  document.getElementById('debtPayFreq').value       = d?.payFrequency||'fortnightly';
+  document.getElementById('debtStartDate').value     = d?.startDate||'';
+  document.getElementById('debtEndDate').value       = d?.endDate||'';
+  document.getElementById('debtTotalPayments').value = d?.totalPayments||'';
   document.getElementById('debtColor').value         = d?.color||'#f05d5d';
   setTimeout(()=>document.getElementById('debtName').focus(),50);
 }
 function closeDebtModal() { document.getElementById('budgetDebtModal').style.display='none'; }
 function editDebt(id) { openDebtModal(id); }
 function saveDebt() {
-  const name  = document.getElementById('debtName').value.trim();
-  const total = parseFloat(document.getElementById('debtTotal').value)||0;
-  const current = parseFloat(document.getElementById('debtCurrent').value)||0;
-  const payFn = parseFloat(document.getElementById('debtPayFn').value)||0;
-  const color = document.getElementById('debtColor').value;
+  const name          = document.getElementById('debtName').value.trim();
+  const total         = parseFloat(document.getElementById('debtTotal').value)||0;
+  const current       = parseFloat(document.getElementById('debtCurrent').value)||0;
+  const payFn         = parseFloat(document.getElementById('debtPayFn').value)||0;
+  const payFrequency  = document.getElementById('debtPayFreq').value||'fortnightly';
+  const startDate     = document.getElementById('debtStartDate').value||null;
+  const endDate       = document.getElementById('debtEndDate').value||null;
+  const totalPayments = parseInt(document.getElementById('debtTotalPayments').value)||null;
+  const color         = document.getElementById('debtColor').value;
   if (!name) { document.getElementById('debtName').focus(); return; }
   if (!budgetData.debts) budgetData.debts = [];
+  const data = {name,total,current,payPerFortnight:payFn,payFrequency,startDate,endDate,totalPayments,color};
   if (currentDebtEdit) {
     const d = budgetData.debts.find(d=>d.id===currentDebtEdit);
-    if (d) { d.name=name; d.total=total; d.current=current; d.payPerFortnight=payFn; d.color=color; }
+    if (d) Object.assign(d, data);
   } else {
-    budgetData.debts.push({id:uid(),name,total,current,payPerFortnight:payFn,color,payments:[]});
+    budgetData.debts.push({id:uid(),...data,payments:[]});
   }
   saveBudget(); closeDebtModal(); renderBudget(); showToast('Debt saved ✓');
 }
@@ -4221,7 +4246,7 @@ initBudgetApp();
 </script>
 <!-- DEBT MODAL -->
 <div class="modal-overlay" id="budgetDebtModal" style="display:none" onclick="if(event.target===this)closeDebtModal()">
-  <div class="modal" style="width:440px">
+  <div class="modal" style="width:460px">
     <div class="modal-title"><i class="fa-solid fa-hand-holding-dollar" style="color:var(--high)"></i> Debt</div>
     <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="debtName" type="text" placeholder="e.g. Car Loan, Credit Card, HECS" onkeydown="if(event.key==='Enter')saveDebt()"></div>
     <div class="form-row">
@@ -4229,7 +4254,22 @@ initBudgetApp();
       <div class="form-group"><label class="form-label">Current Balance</label><input class="form-input" id="debtCurrent" type="number" step="0.01" placeholder="Amount still owed"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Pay / Fortnight</label><input class="form-input" id="debtPayFn" type="number" step="0.01" placeholder="e.g. 100"></div>
+      <div class="form-group"><label class="form-label">Payment Amount</label><input class="form-input" id="debtPayFn" type="number" step="0.01" placeholder="e.g. 100"></div>
+      <div class="form-group"><label class="form-label">Frequency</label>
+        <select class="form-select" id="debtPayFreq">
+          <option value="fortnightly">Fortnightly</option>
+          <option value="monthly">Monthly</option>
+          <option value="weekly">Weekly</option>
+        </select>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);margin:-8px 0 12px;font-style:italic">Optional fields below</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" id="debtStartDate" type="date"></div>
+      <div class="form-group"><label class="form-label">End Date / Final Payment</label><input class="form-input" id="debtEndDate" type="date"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Total No. of Payments</label><input class="form-input" id="debtTotalPayments" type="number" placeholder="e.g. 24"></div>
       <div class="form-group"><label class="form-label">Colour</label><input class="form-input" id="debtColor" type="color" value="#f05d5d" style="height:42px;cursor:pointer;padding:2px 6px"></div>
     </div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeDebtModal()">Cancel</button><button class="btn-primary" onclick="saveDebt()">Save</button></div>
