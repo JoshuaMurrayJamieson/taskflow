@@ -2753,6 +2753,8 @@
   body { margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; }
   .budget-page { display:flex !important; position:relative; height:100vh; }
   .budget-topbar { position:sticky; top:0; z-index:10; }
+  .budget-body { align-items:center; }
+  .budget-content { max-width:1000px; width:100%; margin:0 auto; padding:0 4px; }
 
   /* Toast */
   #toast {
@@ -2878,6 +2880,9 @@
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Contribution / Fortnight</label><input class="form-input" id="savingsContrib" type="number" step="0.01" placeholder="e.g. 100"></div>
+      <div class="form-group"><label class="form-label">Target Date (optional)</label><input class="form-input" id="savingsTargetDate" type="date"></div>
+    </div>
+    <div class="form-row">
       <div class="form-group"><label class="form-label">Colour</label><input class="form-input" id="savingsColor" type="color" value="#4f8ef7" style="height:42px;cursor:pointer;padding:2px 6px"></div>
     </div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeSavingsModal()">Cancel</button><button class="btn-primary" onclick="saveSavingsGoal()">Save Goal</button></div>
@@ -3257,10 +3262,39 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
 
   <!-- Projection -->
   <div>
-    <div class="budget-section-title"><i class="fa-solid fa-chart-line" style="color:var(--accent)"></i> 3-Month Projection</div>
-    <div class="projection-chart">
+    <div class="budget-section-title" style="align-items:center">
+      <i class="fa-solid fa-chart-line" style="color:var(--accent)"></i> Projection
+      <div style="display:flex;gap:2px;margin-left:8px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:2px">
+        ${[['3mo',90],['6mo',180],['1yr',365],['2yr',730]].map(([lbl,days])=>`<button onclick="setProjDays(${days})" style="background:${(budgetData.projDays||90)===days?'var(--bg2)':'none'};border:none;border-radius:3px;padding:3px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:${(budgetData.projDays||90)===days?'var(--text)':'var(--text3)'};transition:all 0.15s">${lbl}</button>`).join('')}
+      </div>
+    </div>
+    <div class="projection-chart" style="height:240px">
       <canvas id="projCanvas" class="proj-canvas"></canvas>
     </div>
+    <!-- Savings bars on overview -->
+    ${(budgetData.savingsGoals||[]).length ? `
+    <div class="budget-section-title" style="margin-top:4px"><i class="fa-solid fa-piggy-bank" style="color:var(--accent)"></i> Savings Progress</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${(budgetData.savingsGoals||[]).map(g => {
+        const pct = g.target > 0 ? Math.min(Math.round((g.current/g.target)*100),100) : 0;
+        const color = g.color || 'var(--accent)';
+        const req = getRequiredContribution(g);
+        const onTrack = req !== null && (g.contribution||0) >= req;
+        return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <span style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(g.name)}</span>
+            <div style="display:flex;align-items:center;gap:10px">
+              ${req !== null ? `<span style="font-size:11px;color:${onTrack?'var(--low)':'var(--high)'};font-weight:600">${onTrack?'✓ On track':'⚠ Behind'}</span>` : ''}
+              <span style="font-size:13px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${color}">${fmtAUD(g.current||0)} / ${fmtAUD(g.target||0)}</span>
+              <span style="font-size:12px;color:var(--text3)">${pct}%</span>
+            </div>
+          </div>
+          <div class="budget-progress-wrap" style="height:8px">
+            <div class="budget-progress-fill" style="width:${pct}%;background:${color};height:8px"></div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>` : ''}
   </div>
 
   <!-- Upcoming bills preview -->
@@ -3419,38 +3453,93 @@ function renderBudgetAllocations(totalIncome, leftover) {
 }
 
 
+function getFortnightsToDate(targetDate) {
+  if (!targetDate) return null;
+  const today = new Date(); today.setHours(0,0,0,0);
+  const end = new Date(targetDate + 'T12:00:00');
+  const days = Math.round((end - today) / 86400000);
+  if (days <= 0) return 0;
+  return Math.floor(days / 14);
+}
+
+function getRequiredContribution(g) {
+  if (!g.targetDate) return null;
+  const remaining = Math.max((g.target||0) - (g.current||0), 0);
+  const fortnights = getFortnightsToDate(g.targetDate);
+  if (!fortnights || fortnights <= 0) return null;
+  return remaining / fortnights;
+}
+
 function renderBudgetSavings(leftover) {
   const goals = budgetData.savingsGoals || [];
   const totalContrib = getTotalSavingsContrib();
   return `
   <div>
     <div class="budget-section-title"><i class="fa-solid fa-piggy-bank" style="color:var(--accent)"></i> Savings Goals</div>
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Total saving per fortnight</div>
-      <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent)">${fmtAUD(totalContrib)}</div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;display:flex;gap:24px;flex-wrap:wrap">
+      <div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Total per fortnight</div>
+        <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--accent)">${fmtAUD(totalContrib)}</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Total saved</div>
+        <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--low)">${fmtAUD(goals.reduce((a,g)=>a+(g.current||0),0))}</div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:4px">Total targets</div>
+        <div style="font-size:22px;font-weight:800;font-family:'JetBrains Mono',monospace;color:var(--text2)">${fmtAUD(goals.reduce((a,g)=>a+(g.target||0),0))}</div>
+      </div>
     </div>
     ${goals.length ? goals.map(g => {
       const pct = g.target > 0 ? Math.min(Math.round((g.current/g.target)*100),100) : 0;
       const remaining = Math.max((g.target||0)-(g.current||0), 0);
-      const fortnightsLeft = g.contribution > 0 ? Math.ceil(remaining/g.contribution) : '∞';
       const color = g.color || 'var(--accent)';
+      const fortnightsLeft = g.contribution > 0 ? Math.ceil(remaining/g.contribution) : null;
+      const reqContrib = getRequiredContribution(g);
+      const fortnightsToDate = g.targetDate ? getFortnightsToDate(g.targetDate) : null;
+      const onTrack = reqContrib !== null && (g.contribution||0) >= reqContrib;
       return `<div class="budget-card" style="border-left:3px solid ${color};margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:700;color:var(--text);line-height:1.5">${escHtml(g.name)}</div>
-            <div style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">
-              ${fmtAUD(g.current||0)} of ${fmtAUD(g.target||0)} · ${fmtAUD(g.contribution||0)}/fortnight · ${fortnightsLeft} fortnights left
+            <div style="font-size:15px;font-weight:800;color:var(--text);line-height:1.5">${escHtml(g.name)}</div>
+            <div style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace;margin-top:2px">
+              ${fmtAUD(g.current||0)} saved of ${fmtAUD(g.target||0)} target
             </div>
           </div>
-          <div style="font-size:20px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${color}">${pct}%</div>
-          <button class="task-act-btn" onclick="editSavingsGoal('${g.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
-          <button class="task-act-btn del" onclick="deleteSavingsGoal('${g.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:24px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${color}">${pct}%</div>
+            <div style="font-size:11px;color:var(--text3)">${fmtAUD(remaining)} to go</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <button class="task-act-btn" onclick="editSavingsGoal('${g.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
+            <button class="task-act-btn del" onclick="deleteSavingsGoal('${g.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+          </div>
         </div>
-        <div class="budget-progress-wrap" style="height:8px">
-          <div class="budget-progress-fill" style="width:${pct}%;background:${color};height:8px"></div>
+        <div class="budget-progress-wrap" style="height:10px;margin-bottom:12px">
+          <div class="budget-progress-fill" style="width:${pct}%;background:${color};height:10px"></div>
         </div>
-        <!-- Quick add to savings -->
-        <div style="display:flex;gap:6px;margin-top:10px;align-items:center">
+        <!-- Stats row -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px">
+          <div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Contributing</div>
+            <div style="font-size:14px;font-weight:700;color:var(--low);font-family:'JetBrains Mono',monospace;margin-top:2px">${fmtAUD(g.contribution||0)}<span style="font-size:10px;color:var(--text3)">/fn</span></div>
+          </div>
+          ${reqContrib !== null ? `<div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid ${onTrack?'var(--low)':'var(--high)'}">
+            <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Need per fn</div>
+            <div style="font-size:14px;font-weight:700;color:${onTrack?'var(--low)':'var(--high)'};font-family:'JetBrains Mono',monospace;margin-top:2px">${fmtAUD(reqContrib)}</div>
+          </div>` : `<div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Fortnights left</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text2);font-family:'JetBrains Mono',monospace;margin-top:2px">${fortnightsLeft||'∞'}</div>
+          </div>`}
+          <div style="background:var(--bg3);border-radius:6px;padding:8px 10px;border:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:0.5px">${g.targetDate?'Target date':'Est. complete'}</div>
+            <div style="font-size:12px;font-weight:700;color:var(--text2);font-family:'JetBrains Mono',monospace;margin-top:2px">${g.targetDate || (fortnightsLeft ? (() => { const d=new Date(); d.setDate(d.getDate()+fortnightsLeft*14); return d.toLocaleDateString('en-AU',{day:'2-digit',month:'short',year:'numeric'}); })() : '—')}</div>
+          </div>
+        </div>
+        ${reqContrib !== null ? `<div style="font-size:11px;padding:6px 10px;border-radius:6px;background:${onTrack?'var(--low-bg)':'var(--high-bg)'};color:${onTrack?'var(--low)':'var(--high)'};font-weight:600;margin-bottom:10px">
+          ${onTrack ? `✓ On track — you're contributing ${fmtAUD((g.contribution||0)-reqContrib)} more than needed` : `⚠ Behind — need ${fmtAUD(reqContrib-(g.contribution||0))} more per fortnight to hit target`}
+        </div>` : ''}
+        <div style="display:flex;gap:6px;align-items:center">
           <input type="number" step="0.01" placeholder="Add amount…" id="savingsAdd_${g.id}"
             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 10px;font-family:'Inter',sans-serif;font-size:12px;color:var(--text);outline:none"
             onkeydown="if(event.key==='Enter')addToSavings('${g.id}')">
@@ -3480,6 +3569,12 @@ function renderBudgetHistory() {
 }
 
 // ── PROJECTION CHART ─────────────────────────────────────────
+function setProjDays(days) {
+  budgetData.projDays = days;
+  saveBudget();
+  renderBudget();
+}
+
 function drawProjectionChart() {
   const canvas = document.getElementById('projCanvas');
   if (!canvas) return;
@@ -3491,10 +3586,10 @@ function drawProjectionChart() {
   const totalBills  = getTotalBills();
   const today = new Date();
 
-  // Generate 90 day projection
+  const projDays = budgetData.projDays || 90;
   const points = [];
-  let balance = 0;
-  for (let i = 0; i < 91; i++) {
+  let balance = budgetData.currentBalance || 0;
+  for (let i = 0; i < projDays + 1; i++) {
     const d = new Date(today);
     d.setDate(today.getDate() + i);
     const dom = d.getDate();
@@ -3509,7 +3604,7 @@ function drawProjectionChart() {
     budgetData.bills.forEach(b => {
       if (parseInt(b.dayOfMonth) === dom) balance -= parseFloat(b.amount)||0;
     });
-    points.push({ day: i, balance });
+    points.push({ day: i, balance, date: d.toISOString().split('T')[0] });
   }
 
   const minB = Math.min(...points.map(p=>p.balance), 0);
@@ -3536,7 +3631,7 @@ function drawProjectionChart() {
 
   ctx.beginPath();
   points.forEach((p,i) => {
-    const x = pad.l + (p.day/90)*cw;
+    const x = pad.l + (p.day/projDays)*cw;
     const y = pad.t + ch*(1-(p.balance-minB)/range);
     i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
   });
@@ -3551,7 +3646,7 @@ function drawProjectionChart() {
   ctx.strokeStyle = '#4dcf8e';
   ctx.lineWidth = 2;
   points.forEach((p,i) => {
-    const x = pad.l + (p.day/90)*cw;
+    const x = pad.l + (p.day/projDays)*cw;
     const y = pad.t + ch*(1-(p.balance-minB)/range);
     i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
   });
@@ -3569,15 +3664,17 @@ function drawProjectionChart() {
     ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
   });
 
-  // X labels (month names)
+  // X labels
   ctx.textAlign = 'center';
   ctx.fillStyle = 'rgba(138,146,164,0.8)';
-  [0,30,60,90].forEach(day => {
-    const d = new Date(today); d.setDate(today.getDate()+day);
-    const lbl = d.toLocaleString('en-AU',{month:'short',day:'numeric'});
-    const x = pad.l + (day/90)*cw;
+  const labelCount = projDays <= 90 ? 4 : projDays <= 180 ? 6 : projDays <= 365 ? 12 : 8;
+  for (let li = 0; li <= labelCount; li++) {
+    const day = Math.round((li / labelCount) * projDays);
+    const d = new Date(today); d.setDate(today.getDate() + day);
+    const lbl = d.toLocaleString('en-AU', projDays > 365 ? {month:'short',year:'2-digit'} : {month:'short',day:'numeric'});
+    const x = pad.l + (day/projDays)*cw;
     ctx.fillText(lbl, x, H-6);
-  });
+  }
 }
 
 // ── CRUD OPERATIONS ──────────────────────────────────────────
@@ -3804,14 +3901,15 @@ function saveSavingsGoal() {
   const target = parseFloat(document.getElementById('savingsTarget').value)||0;
   const current = parseFloat(document.getElementById('savingsCurrent').value)||0;
   const contribution = parseFloat(document.getElementById('savingsContrib').value)||0;
+  const targetDate   = document.getElementById('savingsTargetDate').value || null;
   const color = document.getElementById('savingsColor').value;
   if (!name) { document.getElementById('savingsName').focus(); return; }
   if (!budgetData.savingsGoals) budgetData.savingsGoals = [];
   if (currentSavingsEdit) {
     const g = budgetData.savingsGoals.find(g=>g.id===currentSavingsEdit);
-    if (g) { g.name=name; g.target=target; g.current=current; g.contribution=contribution; g.color=color; }
+    if (g) { g.name=name; g.target=target; g.current=current; g.contribution=contribution; g.targetDate=targetDate; g.color=color; }
   } else {
-    budgetData.savingsGoals.push({id:uid(),name,target,current,contribution,color});
+    budgetData.savingsGoals.push({id:uid(),name,target,current,contribution,targetDate,color});
   }
   saveBudget(); closeSavingsModal(); renderBudget(); showToast('Savings goal saved ✓');
 }
