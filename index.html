@@ -4929,6 +4929,7 @@ document.addEventListener('keydown', e => {
     closeProjProgListModal();
     closeProgTemplatesModal();
     closeAdModal && closeAdModal();
+    closeGroupModal && closeGroupModal();
     closeIncomeModal();
     closeBillModal();
     closeAllocModal();
@@ -7086,7 +7087,7 @@ function deleteTemplate(id) {
 // AD BOARD (Projects integration)
 // ============================================================
 const ADS_API = 'https://9t3zmb9iij.execute-api.ap-southeast-2.amazonaws.com/ads';
-let adBoardData = { stages: [], countries: [], ads: [], library: [] };
+let adBoardData = { stages: [], countries: [], ads: [], library: [], groups: [] };
 let adBoardTab = 'board'; // board | settings
 try { adBoardData = JSON.parse(localStorage.getItem('wtm_adboard') || '{}') || { stages:[], countries:[], ads:[] }; } catch {}
 
@@ -7128,13 +7129,14 @@ function renderAdBoard(container) {
       <div style="display:flex;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;flex-shrink:0">
         <button onclick="setAdBoardTab('board')" style="background:${adBoardTab==='board'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='board'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-table-columns" style="margin-right:4px;font-size:10px"></i>Board</button>
         <button onclick="setAdBoardTab('library')" style="background:${adBoardTab==='library'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='library'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-database" style="margin-right:4px;font-size:10px"></i>Library</button>
+        <button onclick="setAdBoardTab('groups')" style="background:${adBoardTab==='groups'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='groups'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-earth-oceania" style="margin-right:4px;font-size:10px"></i>Regions</button>
         <button onclick="setAdBoardTab('settings')" style="background:${adBoardTab==='settings'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='settings'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-sliders" style="margin-right:4px;font-size:10px"></i>Settings</button>
       </div>
       <a href="ads.html" target="_blank" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:5px 12px;background:var(--low-bg);color:var(--low);border:1px solid rgba(77,207,142,0.3);border-radius:var(--radius-sm);text-decoration:none;flex-shrink:0;white-space:nowrap"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px"></i>Public View</a>
     </div>
     <!-- Content -->
     <div style="flex:1;overflow-x:auto;overflow-y:auto;padding:16px">
-      ${adBoardTab==='board' ? renderAdBoardView() : adBoardTab==='library' ? renderAdLibrary() : renderAdSettings()}
+      ${adBoardTab==='board' ? renderAdBoardView() : adBoardTab==='library' ? renderAdLibrary() : adBoardTab==='groups' ? renderAdGroups() : renderAdSettings()}
     </div>
   </div>`;
 }
@@ -7279,6 +7281,7 @@ function addLibraryAd() {
   const note = document.getElementById('libAdNote').value.trim();
   if (!name) return;
   if (!adBoardData.library) adBoardData.library = [];
+  if (!adBoardData.groups) adBoardData.groups = [];
   adBoardData.library.push({ id: uid(), name, note });
   document.getElementById('libAdName').value = '';
   document.getElementById('libAdNote').value = '';
@@ -7384,6 +7387,202 @@ function addCountry() {
 }
 function deleteCountry(id) {
   adBoardData.countries = adBoardData.countries.filter(c => c.id !== id);
+  saveAdBoard(); renderContent();
+}
+
+
+// ============================================================
+// REGIONAL GROUPS
+// ============================================================
+let editGroupId = null;
+
+function renderAdGroups() {
+  const groups = adBoardData.groups || [];
+  return `<div style="display:flex;flex-direction:column;gap:20px;max-width:900px">
+    ${groups.length ? groups.map(g => renderGroupCard(g)).join('') : ''}
+    <button class="budget-add-btn" onclick="openGroupModal()" style="border-color:var(--accent);color:var(--accent)">
+      <i class="fa-solid fa-plus"></i> Add Region Group
+    </button>
+  </div>`;
+}
+
+function renderGroupCard(g) {
+  const liveSlots   = g.liveSlots || 1;
+  const slotDays    = g.slotDays  || 14;
+  const members     = g.members   || [];
+  const rotationStart = g.rotationStart || null;
+
+  // Calculate current rotation position
+  let currentLive = [], upNext = [], schedule = [];
+  if (rotationStart && members.length) {
+    const start  = new Date(rotationStart + 'T00:00:00');
+    const today  = new Date(); today.setHours(0,0,0,0);
+    const daysSince = Math.floor((today - start) / 86400000);
+    const slotsPassed = Math.floor(daysSince / slotDays);
+
+    // Build rotation schedule — each slot rotates liveSlots countries
+    for (let i = 0; i < Math.max(members.length * 2, 6); i++) {
+      const slotIdx = (slotsPassed + i) % Math.ceil(members.length / liveSlots);
+      const startMember = (slotIdx * liveSlots) % members.length;
+      const slotMembers = [];
+      for (let j = 0; j < liveSlots; j++) {
+        slotMembers.push(members[(startMember + j) % members.length]);
+      }
+      const slotStart = new Date(start);
+      slotStart.setDate(start.getDate() + (slotsPassed + i) * slotDays);
+      const slotEnd = new Date(slotStart);
+      slotEnd.setDate(slotStart.getDate() + slotDays - 1);
+
+      if (i === 0) currentLive = slotMembers;
+      else if (i === 1) upNext = slotMembers;
+
+      schedule.push({
+        slot: slotsPassed + i,
+        members: slotMembers,
+        start: slotStart.toLocaleDateString('en-AU',{day:'2-digit',month:'short'}),
+        end: slotEnd.toLocaleDateString('en-AU',{day:'2-digit',month:'short'}),
+        isCurrent: i === 0,
+        isNext: i === 1,
+        daysUntil: i === 0 ? 0 : Math.round((slotStart - today) / 86400000)
+      });
+    }
+    schedule = schedule.slice(0, 8);
+  }
+
+  const countryMap = {};
+  adBoardData.countries.forEach(c => { countryMap[c.id] = c; });
+  const liveStage = adBoardData.stages.find(s => s.isLive);
+
+  return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden">
+    <!-- Header -->
+    <div style="padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--bg3)">
+      <span style="font-size:20px">${g.emoji||'🌏'}</span>
+      <div style="flex:1">
+        <div style="font-size:15px;font-weight:800;color:var(--text)">${escHtml(g.name)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${members.length} countries · ${liveSlots} live at a time · ${slotDays}-day slots</div>
+      </div>
+      <button class="task-act-btn" onclick="openGroupModal('${g.id}')" style="font-size:11px"><i class="fa-solid fa-pen"></i></button>
+      <button class="task-act-btn del" onclick="deleteGroup('${g.id}')" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+    </div>
+
+    <div style="padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+      <!-- Left: Current + Next -->
+      <div>
+        ${currentLive.length ? `
+        <div style="margin-bottom:14px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--low);margin-bottom:8px"><i class="fa-solid fa-circle" style="font-size:8px;margin-right:4px;animation:livePulse 1.5s infinite"></i>Currently Live</div>
+          ${currentLive.map(cid => {
+            const c = countryMap[cid];
+            if (!c) return '';
+            const countryAds = adBoardData.ads.filter(a => a.countryId === cid);
+            const liveAds = liveStage ? countryAds.filter(a => a.stage === liveStage.id) : [];
+            return `<div style="background:var(--bg3);border:1px solid rgba(77,207,142,0.25);border-left:3px solid var(--low);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:6px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="font-size:18px">${c.flag||'🌍'}</span>
+                <span style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(c.name)}</span>
+                ${liveAds.length ? `<span style="font-size:10px;color:var(--low);font-weight:700;background:var(--low-bg);border-radius:8px;padding:1px 7px;margin-left:auto">● ${liveAds.length} LIVE</span>` : ''}
+              </div>
+              ${liveAds.length ? liveAds.slice(0,3).map(ad => `
+                <div style="font-size:11px;color:var(--text2);padding:2px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+                  <span>${escHtml(ad.name)}</span>
+                  ${ad.liveDate?`<span style="color:var(--text3);font-family:'JetBrains Mono',monospace">${ad.liveDate}</span>`:''}
+                </div>`).join('') + (liveAds.length > 3 ? `<div style="font-size:10px;color:var(--text3);padding-top:3px">+${liveAds.length-3} more</div>` : '')
+                : `<div style="font-size:11px;color:var(--text3)">No live ads</div>`}
+            </div>`;
+          }).join('')}
+        </div>` : rotationStart ? '<div style="color:var(--text3);font-size:12px;padding:8px 0">No rotation active</div>' : ''}
+
+        ${upNext.length ? `
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--med);margin-bottom:8px"><i class="fa-solid fa-forward" style="font-size:8px;margin-right:4px"></i>Up Next</div>
+          ${upNext.map(cid => {
+            const c = countryMap[cid];
+            if (!c) return '';
+            return `<div style="background:var(--bg3);border:1px solid rgba(240,184,77,0.2);border-left:3px solid var(--med);border-radius:var(--radius-sm);padding:8px 12px;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+              <span style="font-size:16px">${c.flag||'🌍'}</span>
+              <span style="font-size:12px;font-weight:600;color:var(--text2)">${escHtml(c.name)}</span>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
+
+        ${!rotationStart ? `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;font-size:12px;color:var(--text3)">
+          <i class="fa-solid fa-calendar" style="margin-right:6px"></i>Set a rotation start date to activate the schedule.
+        </div>` : ''}
+      </div>
+
+      <!-- Right: Full roster + schedule -->
+      <div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:8px">Rotation Schedule</div>
+        ${schedule.length ? `<div style="display:flex;flex-direction:column;gap:4px">
+          ${schedule.map((slot,i) => `
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${slot.isCurrent?'var(--low-bg)':slot.isNext?'var(--med-bg)':'var(--bg3)'};border:1px solid ${slot.isCurrent?'rgba(77,207,142,0.25)':slot.isNext?'rgba(240,184,77,0.2)':'var(--border)'};border-radius:6px">
+              <div style="font-size:10px;font-weight:700;font-family:'JetBrains Mono',monospace;color:${slot.isCurrent?'var(--low)':slot.isNext?'var(--med)':'var(--text3)'};white-space:nowrap;min-width:90px">${slot.start} →</div>
+              <div style="flex:1;display:flex;gap:4px;flex-wrap:wrap">
+                ${slot.members.map(cid => {
+                  const c = countryMap[cid];
+                  return c ? `<span style="font-size:11px;background:var(--bg2);border-radius:4px;padding:1px 5px;color:var(--text2)">${c.flag||''} ${escHtml(c.name)}</span>` : '';
+                }).join('')}
+              </div>
+              ${slot.isCurrent ? `<span style="font-size:10px;color:var(--low);font-weight:700">LIVE</span>` : slot.isNext ? `<span style="font-size:10px;color:var(--med);font-weight:700">NEXT</span>` : `<span style="font-size:10px;color:var(--text3)">+${slot.daysUntil}d</span>`}
+            </div>`).join('')}
+        </div>` : `<div style="font-size:12px;color:var(--text3)">Set rotation start date to see schedule.</div>`}
+
+        <div style="margin-top:12px">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--text3);margin-bottom:6px">All Members (${members.length})</div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            ${members.map(cid => {
+              const c = countryMap[cid];
+              return c ? `<span style="font-size:11px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:2px 7px;color:var(--text2)">${c.flag||''} ${escHtml(c.name)}</span>` : '';
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── GROUP CRUD ────────────────────────────────────────────────
+function openGroupModal(id) {
+  editGroupId = id || null;
+  const g = id ? (adBoardData.groups||[]).find(g=>g.id===id) : null;
+  document.getElementById('groupModal').style.display = 'flex';
+  document.getElementById('groupName').value         = g?.name||'';
+  document.getElementById('groupEmoji').value        = g?.emoji||'🌏';
+  document.getElementById('groupLiveSlots').value    = g?.liveSlots||1;
+  document.getElementById('groupSlotDays').value     = g?.slotDays||14;
+  document.getElementById('groupRotStart').value     = g?.rotationStart||'';
+  // Populate member checkboxes
+  const cont = document.getElementById('groupMemberList');
+  const members = g?.members||[];
+  cont.innerHTML = adBoardData.countries.map(c =>
+    `<label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:5px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;font-size:12px;font-weight:600;color:var(--text2)">
+      <input type="checkbox" value="${c.id}" ${members.includes(c.id)?'checked':''} style="cursor:pointer">
+      ${c.flag||'🌍'} ${escHtml(c.name)}
+    </label>`
+  ).join('');
+  setTimeout(()=>document.getElementById('groupName').focus(),50);
+}
+function closeGroupModal() { document.getElementById('groupModal').style.display='none'; editGroupId=null; }
+function saveGroup() {
+  const name  = document.getElementById('groupName').value.trim();
+  const emoji = document.getElementById('groupEmoji').value.trim();
+  const liveSlots = parseInt(document.getElementById('groupLiveSlots').value)||1;
+  const slotDays  = parseInt(document.getElementById('groupSlotDays').value)||14;
+  const rotationStart = document.getElementById('groupRotStart').value||null;
+  const members = Array.from(document.querySelectorAll('#groupMemberList input:checked')).map(cb=>cb.value);
+  if (!name) { document.getElementById('groupName').focus(); return; }
+  if (!adBoardData.groups) adBoardData.groups = [];
+  if (editGroupId) {
+    const g = adBoardData.groups.find(g=>g.id===editGroupId);
+    if (g) Object.assign(g, {name,emoji,liveSlots,slotDays,rotationStart,members});
+  } else {
+    adBoardData.groups.push({id:uid(),name,emoji,liveSlots,slotDays,rotationStart,members});
+  }
+  saveAdBoard(); closeGroupModal(); renderContent(); showToast('Region group saved ✓');
+}
+function deleteGroup(id) {
+  if (!confirm('Delete this region group?')) return;
+  adBoardData.groups = (adBoardData.groups||[]).filter(g=>g.id!==id);
   saveAdBoard(); renderContent();
 }
 
@@ -7827,6 +8026,27 @@ if (isLoggedIn()) {
     <div class="form-group"><label class="form-label">Live Date (optional)</label><input class="form-input" id="adLiveDate" type="date"></div>
     <div class="form-group"><label class="form-label">Note (optional)</label><input class="form-input" id="adNote" type="text" placeholder="e.g. Approved by client, awaiting upload"></div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeAdModal()">Cancel</button><button class="btn-primary" onclick="saveAd()">Save Ad</button></div>
+  </div>
+</div>
+
+<!-- GROUP MODAL -->
+<div class="modal-overlay" id="groupModal" style="display:none" onclick="if(event.target===this)closeGroupModal()">
+  <div class="modal" style="width:520px;max-height:80vh;overflow-y:auto">
+    <div class="modal-title"><i class="fa-solid fa-earth-oceania" style="color:var(--accent)"></i> Region Group</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Group Name</label><input class="form-input" id="groupName" type="text" placeholder="e.g. Pacific Islands, Asia" onkeydown="if(event.key==='Enter')saveGroup()"></div>
+      <div class="form-group"><label class="form-label">Emoji</label><input class="form-input" id="groupEmoji" type="text" value="🌏" maxlength="4" style="width:70px;font-size:20px;text-align:center"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Countries Live at Once</label><input class="form-input" id="groupLiveSlots" type="number" min="1" value="1" placeholder="e.g. 2"></div>
+      <div class="form-group"><label class="form-label">Days Per Slot</label><input class="form-input" id="groupSlotDays" type="number" min="1" value="14" placeholder="e.g. 14"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Rotation Start Date</label><input class="form-input" id="groupRotStart" type="date"></div>
+    <div class="form-group">
+      <label class="form-label">Member Countries</label>
+      <div id="groupMemberList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:200px;overflow-y:auto;padding:4px"></div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeGroupModal()">Cancel</button><button class="btn-primary" onclick="saveGroup()">Save Group</button></div>
   </div>
 </div>
 </html>

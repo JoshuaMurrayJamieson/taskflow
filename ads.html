@@ -356,6 +356,44 @@ function render() {
     return;
   }
 
+  // Regional groups section
+  const groups = adData.groups || [];
+  let groupsHtml = '';
+  if (groups.length) {
+    groupsHtml = '<div style="padding:0 28px 8px"><div style="font-size:11px;font-weight:700;letter-spacing:1px;color:rgba(255,255,255,0.3);text-transform:uppercase;margin-bottom:12px">Regional Rotations</div><div style="display:flex;gap:14px;flex-wrap:wrap">' +
+    groups.map(g => {
+      const liveSlots = g.liveSlots || 1;
+      const slotDays  = g.slotDays  || 14;
+      const members   = g.members   || [];
+      const liveStage = adData.stages.find(s => s.isLive);
+      let currentLive = [], upNext = [];
+      if (g.rotationStart && members.length) {
+        const start = new Date(g.rotationStart + 'T00:00:00');
+        const today = new Date(); today.setHours(0,0,0,0);
+        const slotsPassed = Math.floor((today - start) / 86400000/ slotDays);
+        const slots = Math.ceil(members.length / liveSlots);
+        const cur = (slotsPassed % slots) * liveSlots;
+        const nxt = ((slotsPassed + 1) % slots) * liveSlots;
+        for (let i=0;i<liveSlots;i++) currentLive.push(members[(cur+i)%members.length]);
+        for (let i=0;i<liveSlots;i++) upNext.push(members[(nxt+i)%members.length]);
+      }
+      const countryMap = {};
+      adData.countries.forEach(c => countryMap[c.id] = c);
+      return '<div style="background:#0d1117;border:1px solid rgba(255,255,255,0.07);border-radius:10px;padding:14px 16px;min-width:260px;flex:1">' +
+        '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">' +
+          '<span style="font-size:20px">' + (g.emoji||'🌏') + '</span>' +
+          '<span style="font-size:14px;font-weight:800;color:#e2e8f0">' + g.name + '</span>' +
+          '<span style="font-size:10px;color:#4a5568;margin-left:auto">' + liveSlots + ' live · ' + slotDays + 'd slots</span>' +
+        '</div>' +
+        (currentLive.length ? '<div style="font-size:10px;font-weight:700;color:#00ff88;letter-spacing:1px;margin-bottom:6px">● LIVE NOW</div>' +
+          currentLive.map(cid => { const c=countryMap[cid]; return c?'<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(0,255,136,0.06);border:1px solid rgba(0,255,136,0.15);border-radius:6px;margin-bottom:4px"><span style="font-size:14px">'+(c.flag||'🌍')+'</span><span style="font-size:12px;font-weight:700;color:#e2e8f0">'+c.name+'</span></div>':''; }).join('') : '') +
+        (upNext.length ? '<div style="font-size:10px;font-weight:700;color:#f0b84d;letter-spacing:1px;margin:8px 0 6px">▶ UP NEXT</div>' +
+          upNext.map(cid => { const c=countryMap[cid]; return c?'<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:rgba(240,184,77,0.06);border:1px solid rgba(240,184,77,0.15);border-radius:6px;margin-bottom:4px"><span style="font-size:14px">'+(c.flag||'🌍')+'</span><span style="font-size:12px;font-weight:600;color:#94a3b8">'+c.name+'</span></div>':''; }).join('') : '') +
+      '</div>';
+    }).join('') + '</div></div>';
+  }
+  document.getElementById('board').insertAdjacentHTML('beforebegin', groupsHtml);
+
   board.innerHTML = countries.map(country => {
     const countryAds = ads.filter(a => a.countryId === country.id)
       .sort((a,b) => {
