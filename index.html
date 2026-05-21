@@ -7086,7 +7086,7 @@ function deleteTemplate(id) {
 // AD BOARD (Projects integration)
 // ============================================================
 const ADS_API = 'https://9t3zmb9iij.execute-api.ap-southeast-2.amazonaws.com/ads';
-let adBoardData = { stages: [], countries: [], ads: [] };
+let adBoardData = { stages: [], countries: [], ads: [], library: [] };
 let adBoardTab = 'board'; // board | settings
 try { adBoardData = JSON.parse(localStorage.getItem('wtm_adboard') || '{}') || { stages:[], countries:[], ads:[] }; } catch {}
 
@@ -7126,14 +7126,15 @@ function renderAdBoard(container) {
     <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;flex-wrap:wrap">
       <span style="font-size:14px;font-weight:800;color:var(--text);flex-shrink:0"><i class="fa-solid fa-tower-broadcast" style="color:var(--low);margin-right:6px"></i>Ad Board</span>
       <div style="display:flex;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;flex-shrink:0">
-        <button onclick="setAdBoardTab('board')" style="background:${adBoardTab==='board'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 12px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='board'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-table-columns" style="margin-right:4px;font-size:10px"></i>Board</button>
-        <button onclick="setAdBoardTab('settings')" style="background:${adBoardTab==='settings'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 12px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='settings'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-sliders" style="margin-right:4px;font-size:10px"></i>Settings</button>
+        <button onclick="setAdBoardTab('board')" style="background:${adBoardTab==='board'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='board'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-table-columns" style="margin-right:4px;font-size:10px"></i>Board</button>
+        <button onclick="setAdBoardTab('library')" style="background:${adBoardTab==='library'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='library'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-database" style="margin-right:4px;font-size:10px"></i>Library</button>
+        <button onclick="setAdBoardTab('settings')" style="background:${adBoardTab==='settings'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='settings'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-sliders" style="margin-right:4px;font-size:10px"></i>Settings</button>
       </div>
       <a href="ads.html" target="_blank" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:5px 12px;background:var(--low-bg);color:var(--low);border:1px solid rgba(77,207,142,0.3);border-radius:var(--radius-sm);text-decoration:none;flex-shrink:0;white-space:nowrap"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px"></i>Public View</a>
     </div>
     <!-- Content -->
     <div style="flex:1;overflow-x:auto;overflow-y:auto;padding:16px">
-      ${adBoardTab==='board' ? renderAdBoardView() : renderAdSettings()}
+      ${adBoardTab==='board' ? renderAdBoardView() : adBoardTab==='library' ? renderAdLibrary() : renderAdSettings()}
     </div>
   </div>`;
 }
@@ -7160,16 +7161,22 @@ function renderAdBoardView() {
             const stage = stages.find(s => s.id === ad.stage);
             const color = stage?.color || '#666';
             const isLive = stage?.isLive || false;
-            return `<div style="background:var(--bg3);border:1px solid ${isLive?color+'44':'var(--border)'};border-radius:6px;padding:9px 11px;${isLive?'border-left:3px solid '+color:''};position:relative;overflow:hidden">
+            // Check if stale (live for 14+ days)
+            const isStale = isLive && ad.liveDate && Math.round((new Date()-new Date(ad.liveDate+'T00:00:00'))/86400000) >= 14;
+            const daysLive = isLive && ad.liveDate ? Math.round((new Date()-new Date(ad.liveDate+'T00:00:00'))/86400000) : 0;
+            const lastEditStr = ad.lastEdited ? new Date(ad.lastEdited).toLocaleDateString('en-AU',{day:'2-digit',month:'short'}) : '';
+            return `<div style="background:var(--bg3);border:1px solid ${isStale?'rgba(240,184,77,0.4)':isLive?color+'44':'var(--border)'};border-radius:6px;padding:9px 11px;${isStale?'border-left:3px solid var(--med)':isLive?'border-left:3px solid '+color:''};position:relative;overflow:hidden">
+              ${isStale?`<div style="font-size:10px;font-weight:700;color:var(--med);background:var(--med-bg);border-radius:4px;padding:2px 7px;margin-bottom:6px;display:inline-flex;align-items:center;gap:4px"><i class="fa-solid fa-rotate" style="font-size:9px"></i> Live ${daysLive} days — needs refresh</div>`:''}
               <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
                 <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;${isLive?'box-shadow:0 0 6px '+color:''}"></div>
                 <span style="font-size:12px;font-weight:700;color:${isLive?'var(--text)':'var(--text2)'};flex:1;opacity:${isLive?1:0.7}">${escHtml(ad.name)}</span>
                 <button class="task-act-btn" onclick="openAdModal('${ad.id}')" style="font-size:9px;opacity:0.5"><i class="fa-solid fa-pen"></i></button>
                 <button class="task-act-btn del" onclick="deleteAd('${ad.id}')" style="font-size:9px;opacity:0.5"><i class="fa-solid fa-trash"></i></button>
               </div>
-              <div style="display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap">
                 <span style="font-size:10px;font-weight:700;color:${color};background:${color}18;border:1px solid ${color}40;border-radius:8px;padding:1px 7px">${stage?.name||'—'}</span>
                 ${ad.liveDate?`<span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">${ad.liveDate}</span>`:''}
+                ${lastEditStr?`<span style="font-size:10px;color:var(--text3)">✎ ${lastEditStr}</span>`:''}
               </div>
               ${ad.note?`<div style="font-size:10px;color:var(--text3);margin-top:5px;padding-top:5px;border-top:1px solid var(--border);font-style:italic">${escHtml(ad.note)}</div>`:''}
             </div>`;
@@ -7217,6 +7224,101 @@ function renderAdSettings() {
   </div>`;
 }
 
+
+function renderAdLibrary() {
+  const lib = adBoardData.library || [];
+  return `<div style="max-width:700px">
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">
+      Add your master list of ads here. When you add a country in Settings, you can instantly deploy all library ads to it.
+    </div>
+
+    <!-- Library list -->
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+      ${lib.length ? lib.map(ad => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <span style="flex:1;font-size:13px;font-weight:600;color:var(--text)">${escHtml(ad.name)}</span>
+          ${ad.note?`<span style="font-size:11px;color:var(--text3);font-style:italic">${escHtml(ad.note)}</span>`:''}
+          <button class="task-act-btn del" onclick="deleteLibraryAd('${ad.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
+        </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in library yet.</div>'}
+    </div>
+
+    <!-- Add to library -->
+    <div style="display:flex;gap:8px;margin-bottom:20px">
+      <input class="subtask-input" id="libAdName" type="text" placeholder="Ad name… e.g. Summer Sale 30sec" style="flex:1" onkeydown="if(event.key==='Enter')addLibraryAd()">
+      <input class="subtask-input" id="libAdNote" type="text" placeholder="Note (optional)" style="width:180px">
+      <button class="subtask-add-btn" onclick="addLibraryAd()">+ Add</button>
+    </div>
+
+    <!-- Deploy to countries -->
+    ${lib.length && adBoardData.countries.length ? `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">
+        <i class="fa-solid fa-rocket" style="color:var(--low);margin-right:6px"></i>Deploy Library to Countries
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Select countries and a starting stage, then deploy all ${lib.length} library ads at once.</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="deployCountryPicker">
+        ${adBoardData.countries.map(c => `
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;font-weight:600;color:var(--text2)">
+            <input type="checkbox" value="${c.id}" style="cursor:pointer"> ${c.flag||'🌍'} ${escHtml(c.name)}
+          </label>`).join('')}
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <select class="form-select" id="deployStage" style="width:180px;font-size:12px">
+          ${adBoardData.stages.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+        </select>
+        <button class="subtask-add-btn" onclick="deployLibraryToCountries()" style="white-space:nowrap;background:var(--low-bg);border-color:rgba(77,207,142,0.3);color:var(--low)">
+          <i class="fa-solid fa-rocket" style="margin-right:4px;font-size:10px"></i>Deploy to Selected
+        </button>
+      </div>
+    </div>` : ''}
+  </div>`;
+}
+
+function addLibraryAd() {
+  const name = document.getElementById('libAdName').value.trim();
+  const note = document.getElementById('libAdNote').value.trim();
+  if (!name) return;
+  if (!adBoardData.library) adBoardData.library = [];
+  adBoardData.library.push({ id: uid(), name, note });
+  document.getElementById('libAdName').value = '';
+  document.getElementById('libAdNote').value = '';
+  saveAdBoard(); renderContent();
+}
+
+function deleteLibraryAd(id) {
+  adBoardData.library = (adBoardData.library||[]).filter(a => a.id !== id);
+  saveAdBoard(); renderContent();
+}
+
+function deployLibraryToCountries() {
+  const stageEl = document.getElementById('deployStage');
+  const stage   = stageEl?.value;
+  if (!stage) { showToast('Select a stage first'); return; }
+
+  const checkboxes = document.querySelectorAll('#deployCountryPicker input[type="checkbox"]:checked');
+  const selectedCountries = Array.from(checkboxes).map(cb => cb.value);
+  if (!selectedCountries.length) { showToast('Select at least one country'); return; }
+
+  const now = new Date().toISOString();
+  let added = 0;
+  selectedCountries.forEach(countryId => {
+    (adBoardData.library||[]).forEach(libAd => {
+      // Skip if this exact ad already exists for this country
+      const exists = adBoardData.ads.some(a => a.name === libAd.name && a.countryId === countryId);
+      if (!exists) {
+        adBoardData.ads.push({
+          id: uid(), name: libAd.name, note: libAd.note||'',
+          stage, countryId, liveDate: '', lastEdited: now, addedAt: now
+        });
+        added++;
+      }
+    });
+  });
+
+  saveAdBoard(); renderContent();
+  showToast(`${added} ads deployed to ${selectedCountries.length} countr${selectedCountries.length>1?'ies':'y'} ✓`);
+}
+
 // ── AD CRUD ───────────────────────────────────────────────────
 let editAdId = null;
 function openAdModal(adId, defaultCountryId) {
@@ -7245,11 +7347,12 @@ function saveAd() {
   const liveDate  = document.getElementById('adLiveDate').value;
   const note      = document.getElementById('adNote').value.trim();
   if (!name) { document.getElementById('adName').focus(); return; }
+  const now = new Date().toISOString();
   if (editAdId) {
     const ad = adBoardData.ads.find(a => a.id === editAdId);
-    if (ad) { ad.name=name; ad.stage=stage; ad.countryId=countryId; ad.liveDate=liveDate; ad.note=note; }
+    if (ad) { ad.name=name; ad.stage=stage; ad.countryId=countryId; ad.liveDate=liveDate; ad.note=note; ad.lastEdited=now; }
   } else {
-    adBoardData.ads.push({ id:uid(), name, stage, countryId, liveDate, note });
+    adBoardData.ads.push({ id:uid(), name, stage, countryId, liveDate, note, lastEdited:now, addedAt:now });
   }
   saveAdBoard(); closeAdModal(); renderContent();
 }

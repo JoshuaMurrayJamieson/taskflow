@@ -218,7 +218,14 @@
       display: flex; gap: 8px; flex-wrap: wrap;
       margin-top: 2px;
     }
-    .ad-note {
+    .ad-card.is-stale {
+    border-color: rgba(240,184,77,0.3) !important;
+  }
+  .ad-card.is-stale::before {
+    background: #f0b84d !important;
+    box-shadow: 0 0 8px #f0b84d !important;
+  }
+  .ad-note {
       font-size: 11px; color: var(--text3);
       margin-top: 5px; line-height: 1.5;
       font-style: italic;
