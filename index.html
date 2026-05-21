@@ -7244,11 +7244,15 @@ function renderAdLibrary() {
         </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in library yet.</div>'}
     </div>
 
-    <!-- Add to library -->
-    <div style="display:flex;gap:8px;margin-bottom:20px">
-      <input class="subtask-input" id="libAdName" type="text" placeholder="Ad name… e.g. Summer Sale 30sec" style="flex:1" onkeydown="if(event.key==='Enter')addLibraryAd()">
-      <input class="subtask-input" id="libAdNote" type="text" placeholder="Note (optional)" style="width:180px">
-      <button class="subtask-add-btn" onclick="addLibraryAd()">+ Add</button>
+    <!-- Add to library — save individually -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add to Library</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input class="subtask-input" id="libAdName" type="text" placeholder="Ad name… e.g. Summer Sale 30sec" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addLibraryAd()">
+        <input class="subtask-input" id="libAdNote" type="text" placeholder="Note (optional)" style="width:160px">
+        <button class="subtask-add-btn" onclick="addLibraryAd()" style="white-space:nowrap"><i class="fa-solid fa-plus" style="margin-right:4px;font-size:10px"></i>Save to Library</button>
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-top:6px">Ads are saved to the library — deploy them to countries whenever you're ready.</div>
     </div>
 
     <!-- Deploy to countries -->
@@ -7573,19 +7577,51 @@ function openGroupModal(id) {
   const members = g?.members||[];
   const memberMap = {};
   members.forEach(m => { if (m && m.id) memberMap[m.id] = m.days || 7; });
-  cont.innerHTML = adBoardData.countries.map(c => {
-    const isChecked = !!memberMap[c.id];
-    const days = memberMap[c.id] || 7;
-    return `<div class="member-row" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;width:100%">
-      <input type="checkbox" value="${c.id}" ${isChecked?'checked':''} style="cursor:pointer;flex-shrink:0">
-      <span style="font-size:16px">${c.flag||'🌍'}</span>
-      <span style="flex:1;font-size:12px;font-weight:600;color:var(--text2)">${escHtml(c.name)}</span>
-      <span style="font-size:11px;color:var(--text3);white-space:nowrap">Days:</span>
-      <input type="number" min="1" max="30" value="${days}" style="width:48px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);text-align:center;outline:none">
+  // Get all countries — main board + any group-specific ones
+  const allCountries = adBoardData.countries || [];
+  if (!allCountries.length) {
+    cont.innerHTML = `<div style="color:var(--text3);font-size:12px;padding:8px 0">
+      No countries in your board yet. Add countries in <strong>Settings</strong> first, or add group-specific ones below.
     </div>`;
-  }).join('');
+  } else {
+    cont.innerHTML = allCountries.map(c => {
+      const isChecked = !!memberMap[c.id];
+      const days = memberMap[c.id] || 7;
+      return `<div class="member-row" style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;width:100%">
+        <input type="checkbox" value="${c.id}" ${isChecked?'checked':''} style="cursor:pointer;flex-shrink:0">
+        <span style="font-size:16px">${c.flag||'🌍'}</span>
+        <span style="flex:1;font-size:12px;font-weight:600;color:var(--text2)">${escHtml(c.name)}</span>
+        <span style="font-size:11px;color:var(--text3);white-space:nowrap">Days:</span>
+        <input type="number" min="1" max="30" value="${days}" style="width:48px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);text-align:center;outline:none">
+      </div>`;
+    }).join('');
+  }
+  // Quick-add country section in modal
+  document.getElementById('groupQuickAddCountry').style.display = 'flex';
   setTimeout(()=>document.getElementById('groupName').focus(),50);
 }
+function addCountryFromGroup() {
+  const flag = document.getElementById('groupNewFlag').value.trim();
+  const name = document.getElementById('groupNewCountry').value.trim();
+  if (!name) return;
+  const newC = { id: uid(), name, flag };
+  adBoardData.countries.push(newC);
+  // Add to member list immediately
+  const cont = document.getElementById('groupMemberList');
+  const row = document.createElement('div');
+  row.className = 'member-row';
+  row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg3);border:1px solid var(--border);border-radius:4px;width:100%';
+  row.innerHTML = `<input type="checkbox" value="${newC.id}" checked style="cursor:pointer;flex-shrink:0">
+    <span style="font-size:16px">${flag||'🌍'}</span>
+    <span style="flex:1;font-size:12px;font-weight:600;color:var(--text2)">${escHtml(name)}</span>
+    <span style="font-size:11px;color:var(--text3);white-space:nowrap">Days:</span>
+    <input type="number" min="1" max="30" value="7" style="width:48px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text);text-align:center;outline:none">`;
+  cont.appendChild(row);
+  document.getElementById('groupNewFlag').value = '';
+  document.getElementById('groupNewCountry').value = '';
+  showToast(name + ' added ✓');
+}
+
 function closeGroupModal() { document.getElementById('groupModal').style.display='none'; editGroupId=null; }
 function saveGroup() {
   const name  = document.getElementById('groupName').value.trim();
@@ -8072,7 +8108,12 @@ if (isLoggedIn()) {
     <div class="form-group"><label class="form-label">Rotation Start Date</label><input class="form-input" id="groupRotStart" type="date"></div>
     <div class="form-group">
       <label class="form-label">Member Countries</label>
-      <div id="groupMemberList" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:200px;overflow-y:auto;padding:4px"></div>
+      <div id="groupMemberList" style="display:flex;flex-direction:column;gap:5px;margin-top:8px;max-height:220px;overflow-y:auto;padding:2px"></div>
+      <div id="groupQuickAddCountry" style="display:none;gap:6px;margin-top:8px;align-items:center">
+        <input class="subtask-input" id="groupNewFlag" type="text" placeholder="🇫🇯" style="width:44px;text-align:center;font-size:18px" maxlength="4">
+        <input class="subtask-input" id="groupNewCountry" type="text" placeholder="Add country to board…" style="flex:1" onkeydown="if(event.key==='Enter')addCountryFromGroup()">
+        <button class="subtask-add-btn" onclick="addCountryFromGroup()">+ Add</button>
+      </div>
     </div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeGroupModal()">Cancel</button><button class="btn-primary" onclick="saveGroup()">Save Group</button></div>
   </div>
