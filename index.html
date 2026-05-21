@@ -7097,14 +7097,20 @@ function saveAdBoard() {
 }
 
 async function pushAdBoard() {
+  const secret = getAppSecret();
+  if (!secret) { console.warn('Ad board: no secret, skipping push'); return; }
   try {
-    await fetch(ADS_API, {
+    const res = await fetch(ADS_API, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-App-Secret': getAppSecret() },
+      headers: { 'Content-Type': 'application/json', 'X-App-Secret': secret },
       body: JSON.stringify(adBoardData)
     });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     showToast('Ad board synced ✓');
-  } catch(e) { console.warn('Ad board sync failed', e); }
+  } catch(e) {
+    console.warn('Ad board sync failed:', e);
+    showToast('⚠ Ad board sync failed — saved locally');
+  }
 }
 
 async function loadAdBoard() {
@@ -7112,9 +7118,13 @@ async function loadAdBoard() {
     const res = await fetch(ADS_API);
     if (!res.ok) return;
     const data = await res.json();
-    adBoardData = data;
-    localStorage.setItem('wtm_adboard', JSON.stringify(adBoardData));
-  } catch(e) {}
+    // Only update if cloud has meaningful data
+    const hasData = (data.stages?.length || data.countries?.length || data.ads?.length || data.library?.length || data.groups?.length);
+    if (hasData) {
+      adBoardData = { stages:[], countries:[], ads:[], library:[], groups:[], ...data };
+      localStorage.setItem('wtm_adboard', JSON.stringify(adBoardData));
+    }
+  } catch(e) { console.warn('loadAdBoard failed:', e); }
 }
 
 function renderAdBoard(container) {
