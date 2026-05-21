@@ -7171,7 +7171,7 @@ function renderAdBoardView() {
               ${isStale?`<div style="font-size:10px;font-weight:700;color:var(--med);background:var(--med-bg);border-radius:4px;padding:2px 7px;margin-bottom:6px;display:inline-flex;align-items:center;gap:4px"><i class="fa-solid fa-rotate" style="font-size:9px"></i> Live ${daysLive} days — needs refresh</div>`:''}
               <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
                 <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;${isLive?'box-shadow:0 0 6px '+color:''}"></div>
-                <span style="font-size:12px;font-weight:700;color:${isLive?'var(--text)':'var(--text2)'};flex:1;opacity:${isLive?1:0.7}">${escHtml(ad.name)}</span>
+                <span style="font-size:12px;font-weight:700;color:${isLive?'var(--text)':'var(--text2)'};flex:1;opacity:${isLive?1:0.7}">${escHtml(ad.name)}${ad.variantLabel?`<span style="font-size:10px;color:var(--accent);font-family:'JetBrains Mono',monospace;margin-left:5px;font-weight:700">: ${escHtml(ad.variantLabel)}</span>`:''}</span>
                 <button class="task-act-btn" onclick="openAdModal('${ad.id}')" style="font-size:9px;opacity:0.5"><i class="fa-solid fa-pen"></i></button>
                 <button class="task-act-btn del" onclick="deleteAd('${ad.id}')" style="font-size:9px;opacity:0.5"><i class="fa-solid fa-trash"></i></button>
               </div>
@@ -7180,6 +7180,14 @@ function renderAdBoardView() {
                 ${ad.liveDate?`<span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">${ad.liveDate}</span>`:''}
                 ${lastEditStr?`<span style="font-size:10px;color:var(--text3)">✎ ${lastEditStr}</span>`:''}
               </div>
+              ${(() => {
+                const libAd = ad.libraryId ? (adBoardData.library||[]).find(l=>l.id===ad.libraryId) : null;
+                const variants = libAd ? (libAd.variants||[]) : [];
+                if (!variants.length) return '';
+                return '<select onchange="switchAdVariant(\'' + ad.id + '\',this.value)" style="margin-top:5px;width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:\'Inter\',sans-serif;font-size:11px;color:var(--text2);outline:none;cursor:pointer">' +
+                  variants.map((v,i) => '<option value="'+v.id+'" '+(ad.variantId===v.id?'selected':'')+'>#'+(i+1)+' '+escHtml(v.label||'Variant '+(i+1))+(v.lastLive?' · '+v.lastLive:'')+' </option>').join('') +
+                '</select>';
+              })()}
               ${ad.note?`<div style="font-size:10px;color:var(--text3);margin-top:5px;padding-top:5px;border-top:1px solid var(--border);font-style:italic">${escHtml(ad.note)}</div>`:''}
             </div>`;
           }).join('')}
@@ -7229,30 +7237,45 @@ function renderAdSettings() {
 
 function renderAdLibrary() {
   const lib = adBoardData.library || [];
-  return `<div style="max-width:700px">
+  return `<div style="max-width:760px">
     <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">
-      Add your master list of ads here. When you add a country in Settings, you can instantly deploy all library ads to it.
+      Build your master ad list here. Each ad can have multiple variants (e.g. SCC #1, SCC #2). When deployed to a country, you select which variant is active.
     </div>
 
-    <!-- Library list -->
-    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
-      ${lib.length ? lib.map(ad => `
-        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm)">
-          <span style="flex:1;font-size:13px;font-weight:600;color:var(--text)">${escHtml(ad.name)}</span>
-          ${ad.note?`<span style="font-size:11px;color:var(--text3);font-style:italic">${escHtml(ad.note)}</span>`:''}
-          <button class="task-act-btn del" onclick="deleteLibraryAd('${ad.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
-        </div>`).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in library yet.</div>'}
+    <!-- Library list with variants -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      ${lib.length ? lib.map(ad => {
+        const variants = ad.variants || [];
+        return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+          <!-- Ad header -->
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:${variants.length?'1px solid var(--border)':'none'}">
+            <span style="flex:1;font-size:13px;font-weight:700;color:var(--text)">${escHtml(ad.name)}</span>
+            ${ad.note?`<span style="font-size:11px;color:var(--text3);font-style:italic">${escHtml(ad.note)}</span>`:''}
+            <button onclick="addVariant('${ad.id}')" style="background:none;border:1px dashed var(--border2);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;font-weight:600;transition:all 0.15s;white-space:nowrap" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">+ Variant</button>
+            <button class="task-act-btn del" onclick="deleteLibraryAd('${ad.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          <!-- Variants -->
+          ${variants.length ? `<div style="display:flex;flex-direction:column;gap:0">
+            ${variants.map((v,vi) => `
+              <div style="display:flex;align-items:center;gap:8px;padding:7px 12px 7px 24px;border-bottom:1px solid var(--border);background:var(--bg2)">
+                <span style="font-size:11px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;width:32px;flex-shrink:0">#${vi+1}</span>
+                <span style="flex:1;font-size:12px;color:var(--text2)">${escHtml(v.label||'Variant '+(vi+1))}</span>
+                ${v.lastLive?`<span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">Last live: ${v.lastLive}</span>`:'<span style="font-size:10px;color:var(--text3)">Never live</span>'}
+                <button class="task-act-btn del" onclick="deleteVariant('${ad.id}','${v.id}')" style="font-size:9px;opacity:0.6"><i class="fa-solid fa-xmark"></i></button>
+              </div>`).join('')}
+          </div>` : `<div style="padding:7px 12px 7px 24px;font-size:11px;color:var(--text3)">No variants — <button onclick="addVariant('${ad.id}')" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;font-family:'Inter',sans-serif;padding:0">add one</button></div>`}
+        </div>`;
+      }).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in library yet.</div>'}
     </div>
 
-    <!-- Add to library — save individually -->
+    <!-- Add to library -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add to Library</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add Ad to Library</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input class="subtask-input" id="libAdName" type="text" placeholder="Ad name… e.g. Summer Sale 30sec" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addLibraryAd()">
-        <input class="subtask-input" id="libAdNote" type="text" placeholder="Note (optional)" style="width:160px">
+        <input class="subtask-input" id="libAdName" type="text" placeholder="Ad name… e.g. SCC, Summer Sale" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addLibraryAd()">
+        <input class="subtask-input" id="libAdNote" type="text" placeholder="Note (optional)" style="width:140px">
         <button class="subtask-add-btn" onclick="addLibraryAd()" style="white-space:nowrap"><i class="fa-solid fa-plus" style="margin-right:4px;font-size:10px"></i>Save to Library</button>
       </div>
-      <div style="font-size:11px;color:var(--text3);margin-top:6px">Ads are saved to the library — deploy them to countries whenever you're ready.</div>
     </div>
 
     <!-- Deploy to countries -->
@@ -7261,7 +7284,7 @@ function renderAdLibrary() {
       <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">
         <i class="fa-solid fa-rocket" style="color:var(--low);margin-right:6px"></i>Deploy Library to Countries
       </div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Select countries and a starting stage, then deploy all ${lib.length} library ads at once.</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Deploys all ads (using their first variant) to the selected countries at the chosen stage.</div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="deployCountryPicker">
         ${adBoardData.countries.map(c => `
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;font-weight:600;color:var(--text2)">
@@ -7278,6 +7301,24 @@ function renderAdLibrary() {
       </div>
     </div>` : ''}
   </div>`;
+}
+
+function addVariant(adId) {
+  const ad = (adBoardData.library||[]).find(a => a.id === adId);
+  if (!ad) return;
+  if (!ad.variants) ad.variants = [];
+  const num = ad.variants.length + 1;
+  const label = prompt(`Variant label for ${ad.name} #${num}:`, `Version ${num}`);
+  if (!label) return;
+  ad.variants.push({ id: uid(), label, lastLive: null });
+  saveAdBoard(); renderContent();
+}
+
+function deleteVariant(adId, variantId) {
+  const ad = (adBoardData.library||[]).find(a => a.id === adId);
+  if (!ad) return;
+  ad.variants = (ad.variants||[]).filter(v => v.id !== variantId);
+  saveAdBoard(); renderContent();
 }
 
 function addLibraryAd() {
@@ -7313,8 +7354,12 @@ function deployLibraryToCountries() {
       // Skip if this exact ad already exists for this country
       const exists = adBoardData.ads.some(a => a.name === libAd.name && a.countryId === countryId);
       if (!exists) {
+        const firstVariant = (libAd.variants||[])[0];
         adBoardData.ads.push({
           id: uid(), name: libAd.name, note: libAd.note||'',
+          libraryId: libAd.id,
+          variantId: firstVariant?.id || null,
+          variantLabel: firstVariant?.label || null,
           stage, countryId, liveDate: '', lastEdited: now, addedAt: now
         });
         added++;
@@ -7344,6 +7389,19 @@ function openAdModal(adId, defaultCountryId) {
   countrySel.innerHTML = adBoardData.countries.map(c =>
     `<option value="${c.id}" ${(ad?.countryId||defaultCountryId)===c.id?'selected':''}>${c.flag||''} ${c.name}</option>`
   ).join('');
+  // Variant dropdown — find matching library ad
+  const variantGroup = document.getElementById('adVariantGroup');
+  const variantSel   = document.getElementById('adVariant');
+  const libAd = ad?.libraryId ? (adBoardData.library||[]).find(l=>l.id===ad.libraryId) : null;
+  const variants = libAd?.variants || [];
+  if (variants.length) {
+    variantSel.innerHTML = `<option value="">— No variant —</option>` + variants.map((v,i) =>
+      `<option value="${v.id}" ${ad?.variantId===v.id?'selected':''}>#${i+1} ${escHtml(v.label||'Variant '+(i+1))}${v.lastLive?' · last live: '+v.lastLive:''}</option>`
+    ).join('');
+    variantGroup.style.display = 'block';
+  } else {
+    variantGroup.style.display = 'none';
+  }
   setTimeout(() => document.getElementById('adName').focus(), 50);
 }
 function closeAdModal() { document.getElementById('adModal').style.display = 'none'; }
@@ -7363,6 +7421,17 @@ function saveAd() {
   }
   saveAdBoard(); closeAdModal(); renderContent();
 }
+function switchAdVariant(adId, variantId) {
+  const ad = adBoardData.ads.find(a => a.id === adId);
+  if (!ad) return;
+  const libAd = ad.libraryId ? (adBoardData.library||[]).find(l=>l.id===ad.libraryId) : null;
+  const variant = libAd?.variants?.find(v=>v.id===variantId);
+  ad.variantId = variantId;
+  ad.variantLabel = variant?.label||null;
+  ad.lastEdited = new Date().toISOString();
+  saveAdBoard(); renderContent();
+}
+
 function deleteAd(id) {
   if (!confirm('Delete this ad?')) return;
   adBoardData.ads = adBoardData.ads.filter(a => a.id !== id);
@@ -8085,7 +8154,11 @@ if (isLoggedIn()) {
 <div class="modal-overlay" id="adModal" style="display:none" onclick="if(event.target===this)closeAdModal()">
   <div class="modal" style="width:440px">
     <div class="modal-title"><i class="fa-solid fa-rectangle-ad" style="color:var(--low)"></i> Ad</div>
-    <div class="form-group"><label class="form-label">Ad Name</label><input class="form-input" id="adName" type="text" placeholder="e.g. Summer Sale 30sec" onkeydown="if(event.key===&apos;Enter&apos;)saveAd()"></div>
+    <div class="form-group"><label class="form-label">Ad Name</label><input class="form-input" id="adName" type="text" placeholder="e.g. SCC, Summer Sale 30sec" onkeydown="if(event.key===&apos;Enter&apos;)saveAd()"></div>
+    <div id="adVariantGroup" class="form-group" style="display:none">
+      <label class="form-label">Variant</label>
+      <select class="form-select" id="adVariant"></select>
+    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Stage</label><select class="form-select" id="adStage"></select></div>
       <div class="form-group"><label class="form-label">Country</label><select class="form-select" id="adCountry"></select></div>
