@@ -4284,7 +4284,15 @@ document.addEventListener('click', e => {
 });
 
 // Wait for full DOM before init
-document.addEventListener("DOMContentLoaded", () => { document.getElementById("budgetApp").style.display="flex"; loadBudgetFromCloud(); });
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("budgetApp").style.display = "flex";
+  // Render immediately from localStorage so page is never blank
+  const inp = document.getElementById("fortnightStartDay");
+  if (inp) inp.value = budgetData.fortnightStartDay || 1;
+  renderBudget();
+  // Then sync from cloud in background
+  loadBudgetFromCloud();
+});
 </script>
 <!-- DEBT MODAL -->
 <div class="modal-overlay" id="budgetDebtModal" style="display:none" onclick="if(event.target===this)closeDebtModal()">
