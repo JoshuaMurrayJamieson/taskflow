@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ad Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #080a0f;
+      --bg2:    #0d1117;
+      --bg3:    #131920;
+      --border: rgba(255,255,255,0.07);
+      --text:   #e2e8f0;
+      --text2:  #94a3b8;
+      --text3:  #4a5568;
+      --live:   #00ff88;
+      --live-bg: rgba(0,255,136,0.08);
+      --radius: 10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+    }
+
+    /* Scanline effect */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,0.03) 2px,
+        rgba(0,0,0,0.03) 4px
+      );
+      pointer-events: none; z-index: 9999;
+    }
+
+    /* Topbar */
+    .topbar {
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: sticky; top: 0; z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+    .topbar-logo {
+      font-size: 18px; font-weight: 800;
+      color: var(--live);
+      display: flex; align-items: center; gap: 8px;
+      letter-spacing: -0.5px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .live-indicator {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--live);
+      box-shadow: 0 0 8px var(--live);
+      animation: livePulse 1.5s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes livePulse {
+      0%,100% { opacity:1; box-shadow:0 0 6px var(--live); }
+      50%      { opacity:0.5; box-shadow:0 0 16px var(--live); }
+    }
+    .topbar-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; color: var(--text3);
+      margin-left: auto;
+    }
+    .topbar-refresh {
+      font-size: 11px; color: var(--text3);
+      display: flex; align-items: center; gap: 4px;
+    }
+    .refresh-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%; background: var(--text3);
+      animation: refreshPing 30s linear infinite;
+    }
+    @keyframes refreshPing {
+      0%,95%   { background:var(--text3); }
+      97%,100% { background:var(--live); box-shadow:0 0 6px var(--live); }
+    }
+
+    /* Stats bar */
+    .stats-bar {
+      display: flex; gap: 24px;
+      padding: 12px 28px;
+      background: var(--bg2);
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+    .stat-item {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; color: var(--text2);
+    }
+    .stat-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 16px; font-weight: 700; color: var(--text);
+    }
+    .stat-val.live { color: var(--live); }
+
+    /* Stage legend */
+    .stage-legend {
+      display: flex; gap: 10px; margin-left: auto; flex-wrap: wrap;
+    }
+    .legend-chip {
+      display: flex; align-items: center; gap: 5px;
+      font-size: 11px; font-weight: 600;
+      padding: 3px 8px; border-radius: 20px;
+      border: 1px solid;
+    }
+    .legend-dot { width:7px; height:7px; border-radius:50%; }
+
+    /* Board */
+    .board {
+      display: flex;
+      gap: 16px;
+      padding: 20px 28px;
+      overflow-x: auto;
+      min-height: calc(100vh - 120px);
+      align-items: flex-start;
+    }
+
+    /* Country column */
+    .country-col {
+      flex-shrink: 0;
+      width: 280px;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .country-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 10px;
+      background: rgba(255,255,255,0.02);
+    }
+    .country-flag { font-size: 22px; flex-shrink: 0; }
+    .country-name {
+      font-size: 14px; font-weight: 800;
+      color: var(--text); letter-spacing: 0.3px;
+      flex: 1;
+    }
+    .country-live-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; font-weight: 700;
+      background: var(--live-bg);
+      color: var(--live);
+      border: 1px solid rgba(0,255,136,0.2);
+      border-radius: 20px;
+      padding: 2px 8px;
+    }
+    .country-ads {
+      padding: 10px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    /* Ad card */
+    .ad-card {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px 14px;
+      transition: border-color 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+    .ad-card.is-live {
+      border-color: rgba(0,255,136,0.25);
+      background: rgba(0,255,136,0.04);
+    }
+    .ad-card.is-live::before {
+      content: '';
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: 3px;
+      background: var(--live);
+      box-shadow: 0 0 8px var(--live);
+    }
+    .ad-card-top {
+      display: flex; align-items: flex-start;
+      gap: 8px; margin-bottom: 6px;
+    }
+    .ad-status-dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0; margin-top: 4px;
+    }
+    .ad-status-dot.is-live {
+      animation: livePulse 1.5s ease-in-out infinite;
+    }
+    .ad-name {
+      font-size: 13px; font-weight: 700;
+      color: var(--text); line-height: 1.5; flex: 1;
+    }
+    .ad-name.not-live { color: var(--text2); opacity: 0.7; }
+    .ad-stage-badge {
+      font-size: 10px; font-weight: 700;
+      padding: 2px 7px; border-radius: 20px;
+      border: 1px solid; white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .ad-meta {
+      font-size: 11px; color: var(--text3);
+      font-family: 'JetBrains Mono', monospace;
+      display: flex; gap: 8px; flex-wrap: wrap;
+      margin-top: 2px;
+    }
+    .ad-note {
+      font-size: 11px; color: var(--text3);
+      margin-top: 5px; line-height: 1.5;
+      font-style: italic;
+      padding-top: 5px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Empty state */
+    .empty-col {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--text3);
+      font-size: 12px;
+    }
+    .empty-board {
+      width: 100%; text-align: center;
+      padding: 80px 20px;
+      color: var(--text3);
+    }
+    .empty-board i { font-size: 36px; margin-bottom: 12px; display: block; }
+
+    /* Loading */
+    .loading-screen {
+      position: fixed; inset: 0;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--live);
+    }
+    .loading-bar {
+      width: 200px; height: 2px;
+      background: var(--border);
+      border-radius: 2px; overflow: hidden;
+    }
+    .loading-fill {
+      height: 100%; background: var(--live);
+      animation: loadFill 1.2s ease forwards;
+    }
+    @keyframes loadFill { from{width:0} to{width:100%} }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width:6px; height:6px; }
+    ::-webkit-scrollbar-track { background: var(--bg2); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius:3px; }
+  </style>
+</head>
+<body>
+
+<div class="loading-screen" id="loadingScreen">
+  <div style="font-size:13px;letter-spacing:2px">LOADING FEED</div>
+  <div class="loading-bar"><div class="loading-fill"></div></div>
+</div>
+
+<div id="app" style="display:none">
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="live-indicator"></div>
+      AD DASHBOARD
+    </div>
+    <div style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace" id="lastUpdated"></div>
+    <div class="topbar-time" id="clock"></div>
+    <div class="topbar-refresh">
+      <div class="refresh-dot"></div>
+      <span>Auto-refresh 30s</span>
+    </div>
+  </div>
+
+  <div class="stats-bar" id="statsBar"></div>
+
+  <div class="board" id="board"></div>
+</div>
+
+<script>
+const API_URL = 'https://9t3zmb9iij.execute-api.ap-southeast-2.amazonaws.com/ads';
+
+let adData = { stages: [], countries: [], ads: [] };
+
+// ── CLOCK ─────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleString('en-AU', {weekday:'short',day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ── LOAD ──────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const res = await fetch(API_URL);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    adData = await res.json();
+    document.getElementById('lastUpdated').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-AU');
+  } catch(e) {
+    console.warn('Load failed:', e);
+  }
+  render();
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function render() {
+  const { stages, countries, ads } = adData;
+
+  // Stats
+  const totalAds  = ads.length;
+  const liveStage = stages.find(s => s.isLive);
+  const liveAds   = liveStage ? ads.filter(a => a.stage === liveStage.id).length : 0;
+
+  const statsBar = document.getElementById('statsBar');
+  statsBar.innerHTML = `
+    <div class="stat-item"><span class="stat-val live">${liveAds}</span><span>LIVE</span></div>
+    <div class="stat-item"><span class="stat-val">${totalAds}</span><span>TOTAL ADS</span></div>
+    <div class="stat-item"><span class="stat-val">${countries.length}</span><span>MARKETS</span></div>
+    <div class="stage-legend">
+      ${stages.map(s => `
+        <div class="legend-chip" style="color:${s.color};border-color:${s.color}40;background:${s.color}10">
+          <div class="legend-dot" style="background:${s.color}${s.isLive?';box-shadow:0 0 6px '+s.color:''}"></div>
+          ${s.name}
+        </div>`).join('')}
+    </div>`;
+
+  // Board
+  const board = document.getElementById('board');
+  if (!countries.length) {
+    board.innerHTML = `<div class="empty-board"><i class="fa-solid fa-tower-broadcast"></i>No data available</div>`;
+    return;
+  }
+
+  board.innerHTML = countries.map(country => {
+    const countryAds = ads.filter(a => a.countryId === country.id)
+      .sort((a,b) => {
+        // Live ads first
+        const aLive = stages.find(s=>s.id===a.stage)?.isLive ? 0 : 1;
+        const bLive = stages.find(s=>s.id===b.stage)?.isLive ? 0 : 1;
+        return aLive - bLive;
+      });
+    const liveCt = countryAds.filter(a => stages.find(s=>s.id===a.stage)?.isLive).length;
+
+    return `<div class="country-col">
+      <div class="country-header">
+        <span class="country-flag">${country.flag||'🌍'}</span>
+        <span class="country-name">${country.name}</span>
+        ${liveCt > 0 ? `<span class="country-live-count">● ${liveCt} LIVE</span>` : ''}
+      </div>
+      <div class="country-ads">
+        ${countryAds.length ? countryAds.map(ad => {
+          const stage = stages.find(s => s.id === ad.stage);
+          const isLive = stage?.isLive || false;
+          const color  = stage?.color || '#666';
+          return `<div class="ad-card ${isLive?'is-live':''}">
+            <div class="ad-card-top">
+              <div class="ad-status-dot ${isLive?'is-live':''}" style="background:${color};${isLive?'box-shadow:0 0 6px '+color:''}"></div>
+              <span class="ad-name ${isLive?'':'not-live'}">${ad.name}</span>
+              <span class="ad-stage-badge" style="color:${color};border-color:${color}50;background:${color}15">${stage?.name||'Unknown'}</span>
+            </div>
+            <div class="ad-meta">
+              ${ad.liveDate ? `<span><i class="fa-regular fa-calendar" style="margin-right:3px"></i>${ad.liveDate}</span>` : ''}
+              ${ad.platform ? `<span><i class="fa-brands fa-${ad.platform.toLowerCase()}" style="margin-right:3px"></i>${ad.platform}</span>` : ''}
+            </div>
+            ${ad.note ? `<div class="ad-note">${ad.note}</div>` : ''}
+          </div>`;
+        }).join('') : `<div class="empty-col"><i class="fa-solid fa-circle-xmark" style="display:block;margin-bottom:6px"></i>No ads</div>`}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+setTimeout(() => {
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadDashboard();
+  setInterval(loadDashboard, 30000);
+}, 1400);
+</script>
+</body>
+</html>
