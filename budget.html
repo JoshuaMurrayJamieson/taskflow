@@ -3059,7 +3059,7 @@ function fmtAUD(n) {
   return '$' + Math.abs(n).toLocaleString('en-AU', {minimumFractionDigits:2, maximumFractionDigits:2});
 }
 function getTotalIncome() {
-  return budgetData.incomes.reduce((a,i) => a + (parseFloat(i.amount)||0), 0);
+  return (budgetData.incomes||[]).reduce((a,i) => a + (parseFloat(i.amount)||0), 0);
 }
 function billPerFortnight(b) {
   const amt  = parseFloat(b.amount) || 0;
@@ -3073,10 +3073,10 @@ function billPerFortnight(b) {
 }
 
 function getTotalBills() {
-  return budgetData.bills.filter(b=>b.type!=='variable').reduce((a,b) => a + billPerFortnight(b), 0);
+  return (budgetData.bills||[]).filter(b=>b.type!=='variable').reduce((a,b) => a + billPerFortnight(b), 0);
 }
 function getTotalVariable() {
-  return budgetData.bills.filter(b=>b.type==='variable').reduce((a,b) => a + (parseFloat(b.amount)||0), 0);
+  return (budgetData.bills||[]).filter(b=>b.type==='variable').reduce((a,b) => a + (parseFloat(b.amount)||0), 0);
 }
 function getTotalSavingsContrib() {
   return (budgetData.savingsGoals||[]).reduce((a,g) => a + (parseFloat(g.contribution)||0), 0);
@@ -3103,7 +3103,7 @@ function getUpcomingBills(days = 60) {
   const today = new Date(); today.setHours(0,0,0,0);
   const result = [];
 
-  budgetData.bills.forEach(bill => {
+  (budgetData.bills||[]).forEach(bill => {
     if (bill.type === 'variable') return; // variable has no date
 
     const freq = bill.frequency || 'monthly';
@@ -3182,21 +3182,37 @@ function getBeforeNextPayAnalysis() {
 function renderBudget() {
   const body = document.getElementById('budgetBody');
   if (!body) return;
+
+  // Ensure all arrays exist
+  budgetData.incomes       = budgetData.incomes       || [];
+  budgetData.bills         = budgetData.bills         || [];
+  budgetData.allocations   = budgetData.allocations   || [];
+  budgetData.savingsGoals  = budgetData.savingsGoals  || [];
+  budgetData.transactions  = budgetData.transactions  || [];
+  budgetData.debts         = budgetData.debts         || [];
+
   const totalIncome = getTotalIncome();
   const totalBills  = getTotalBills();
   const leftover    = totalIncome - totalBills;
-  const totalAlloc  = budgetData.allocations.reduce((a,al) => a + (parseFloat(al.percent)||0), 0);
   const pct = totalIncome > 0 ? Math.round((totalBills/totalIncome)*100) : 0;
 
-  let tabHtml = '';
-  if (budgetTab === 'overview') tabHtml = renderBudgetOverview(totalIncome, totalBills, leftover, pct);
-  else if (budgetTab === 'bills') tabHtml = renderBudgetBills();
-  else if (budgetTab === 'savings') tabHtml = renderBudgetSavings(leftover);
-  else if (budgetTab === 'debt') tabHtml = renderBudgetDebt();
-  else if (budgetTab === 'history') tabHtml = renderBudgetHistory();
-  body.innerHTML = `<div class="budget-content">${tabHtml}</div>`;
+  try {
+    let tabHtml = '';
+    if (budgetTab === 'overview') tabHtml = renderBudgetOverview(totalIncome, totalBills, leftover, pct);
+    else if (budgetTab === 'bills') tabHtml = renderBudgetBills();
+    else if (budgetTab === 'savings') tabHtml = renderBudgetSavings(leftover);
+    else if (budgetTab === 'debt') tabHtml = renderBudgetDebt();
+    else if (budgetTab === 'history') tabHtml = renderBudgetHistory();
+    body.innerHTML = `<div class="budget-content">${tabHtml}</div>`;
+  } catch(e) {
+    console.error('renderBudget error:', e);
+    body.innerHTML = `<div class="budget-content"><div style="padding:40px;text-align:center;color:var(--text3)">
+      <i class="fa-solid fa-triangle-exclamation" style="font-size:24px;color:var(--med);display:block;margin-bottom:12px"></i>
+      <div style="font-size:14px;margin-bottom:8px">Something went wrong rendering this tab.</div>
+      <div style="font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--high)">${e.message}</div>
+    </div></div>`;
+  }
 
-  // Draw projection chart if on overview
   if (budgetTab === 'overview') {
     setTimeout(() => drawProjectionChart(), 50);
   }
