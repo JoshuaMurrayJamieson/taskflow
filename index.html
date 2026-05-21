@@ -7711,4 +7711,19 @@ if (isLoggedIn()) {
     </div>
   </div>
 </div>
+
+<!-- AD MODAL -->
+<div class="modal-overlay" id="adModal" style="display:none" onclick="if(event.target===this)closeAdModal()">
+  <div class="modal" style="width:440px">
+    <div class="modal-title"><i class="fa-solid fa-rectangle-ad" style="color:var(--low)"></i> Ad</div>
+    <div class="form-group"><label class="form-label">Ad Name</label><input class="form-input" id="adName" type="text" placeholder="e.g. Summer Sale 30sec" onkeydown="if(event.key===&apos;Enter&apos;)saveAd()"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Stage</label><select class="form-select" id="adStage"></select></div>
+      <div class="form-group"><label class="form-label">Country</label><select class="form-select" id="adCountry"></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">Live Date (optional)</label><input class="form-input" id="adLiveDate" type="date"></div>
+    <div class="form-group"><label class="form-label">Note (optional)</label><input class="form-input" id="adNote" type="text" placeholder="e.g. Approved by client, awaiting upload"></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeAdModal()">Cancel</button><button class="btn-primary" onclick="saveAd()">Save Ad</button></div>
+  </div>
+</div>
 </html>
