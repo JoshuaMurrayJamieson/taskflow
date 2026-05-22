@@ -3239,13 +3239,13 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
     const statusIcon  = safe ? (tight ? 'fa-triangle-exclamation' : 'fa-circle-check') : 'fa-circle-xmark';
     const statusMsg   = safe ? (tight ? 'Tight — only ' + fmtAUD(remaining) + ' left' : 'You\'re covered') : 'Shortfall of ' + fmtAUD(Math.abs(remaining));
     const nextPayStr  = nextPay.toLocaleDateString('en-AU',{weekday:'short',day:'2-digit',month:'short'});
-    return \`<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
       <!-- Balance input -->
       <div class="budget-card" style="border-left:3px solid var(--accent)">
         <div class="budget-card-label">Current Balance</div>
-        <div class="budget-card-value" style="color:var(--accent)">\${fmtAUD(budgetData.currentBalance||0)}</div>
+        <div class="budget-card-value" style="color:var(--accent)">${fmtAUD(budgetData.currentBalance||0)}</div>
         <div style="margin-top:8px;display:flex;align-items:center;gap:8px">
-          <input type="number" step="0.01" value="\${budgetData.currentBalance||0}"
+          <input type="number" step="0.01" value="${budgetData.currentBalance||0}"
             style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--text);outline:none;transition:border-color 0.18s"
             onchange="budgetData.currentBalance=parseFloat(this.value)||0;saveBudget();renderBudget()"
             onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"
@@ -3254,34 +3254,34 @@ function renderBudgetOverview(totalIncome, totalBills, leftover, pct) {
         </div>
       </div>
       <!-- Before next pay analysis -->
-      <div class="budget-card" style="border-left:3px solid \${statusColor}">
+      <div class="budget-card" style="border-left:3px solid ${statusColor}">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
           <div>
             <div class="budget-card-label">Before Next Pay</div>
-            <div style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace">\${nextPayStr} · \${daysLeft} day\${daysLeft!==1?'s':''} away</div>
+            <div style="font-size:12px;color:var(--text3);font-family:'JetBrains Mono',monospace">${nextPayStr} · ${daysLeft} day${daysLeft!==1?'s':''} away</div>
           </div>
-          <div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:\${statusColor}18;border:1px solid \${statusColor}40">
-            <i class="fa-solid \${statusIcon}" style="color:\${statusColor};font-size:12px"></i>
-            <span style="font-size:11px;font-weight:700;color:\${statusColor}">\${statusMsg}</span>
+          <div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:20px;background:${statusColor}18;border:1px solid ${statusColor}40">
+            <i class="fa-solid ${statusIcon}" style="color:${statusColor};font-size:12px"></i>
+            <span style="font-size:11px;font-weight:700;color:${statusColor}">${statusMsg}</span>
           </div>
         </div>
-        \${billsDue.length ? \`
+        ${billsDue.length ? `
         <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:8px">
-          \${billsDue.slice(0,4).map(b => \`
+          ${billsDue.slice(0,4).map(b => `
             <div style="display:flex;align-items:center;gap:8px;font-size:11px;padding:3px 0;border-bottom:1px solid var(--border)">
-              <span style="font-size:14px;flex-shrink:0">\${b.emoji||'💰'}</span>
-              <span style="flex:1;color:var(--text2)">\${escHtml(b.name)}</span>
-              <span style="color:var(--text3);font-family:'JetBrains Mono',monospace">\${b.daysUntil===0?'today':'in '+b.daysUntil+'d'}</span>
-              <span style="color:var(--high);font-family:'JetBrains Mono',monospace;font-weight:700">-\${fmtAUD(b.amount)}</span>
-            </div>\`).join('')}
-          \${billsDue.length > 4 ? \`<div style="font-size:10px;color:var(--text3);padding-top:2px">+\${billsDue.length-4} more bills</div>\` : ''}
+              <span style="font-size:14px;flex-shrink:0">${b.emoji||'💰'}</span>
+              <span style="flex:1;color:var(--text2)">${escHtml(b.name)}</span>
+              <span style="color:var(--text3);font-family:'JetBrains Mono',monospace">${b.daysUntil===0?'today':'in '+b.daysUntil+'d'}</span>
+              <span style="color:var(--high);font-family:'JetBrains Mono',monospace;font-weight:700">-${fmtAUD(b.amount)}</span>
+            </div>`).join('')}
+          ${billsDue.length > 4 ? `<div style="font-size:10px;color:var(--text3);padding-top:2px">+${billsDue.length-4} more bills</div>` : ''}
         </div>
         <div style="display:flex;justify-content:space-between;padding-top:4px;border-top:1px solid var(--border)">
           <span style="font-size:12px;font-weight:700;color:var(--text2)">Balance after bills</span>
-          <span style="font-size:14px;font-weight:800;font-family:'JetBrains Mono',monospace;color:\${statusColor}">\${fmtAUD(remaining)}</span>
-        </div>\` : \`<div style="font-size:12px;color:var(--text3)">No fixed bills due before \${nextPayStr}</div>\`}
+          <span style="font-size:14px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${statusColor}">${fmtAUD(remaining)}</span>
+        </div>` : `<div style="font-size:12px;color:var(--text3)">No fixed bills due before ${nextPayStr}</div>`}
       </div>
-    </div>\`;
+    </div>`;
   })()}
 
   <div class="budget-summary-grid">
