@@ -397,22 +397,25 @@ function render() {
   board.innerHTML = countries.map(country => {
     // Build country ads from library + adState
     const lib = (adData.libraries||[]).find(l => l.id === country.libraryId);
-    const libAds = lib?.ads || [];
+    const refs = lib?.ads || [];
+    const production = adData.production || [];
+    const liveStageId = stages.find(s => s.isLive)?.id;
     const adState = country.adState || {};
-    const countryAds = libAds.map(libAd => {
-      const state = adState[libAd.id] || {};
-      const stage = stages.find(s => s.id === state.stageId);
-      const variant = (libAd.variants||[]).find(v => v.id === state.variantId);
+    const countryAds = refs.map(ref => {
+      const ad = production.find(p => p.id === ref.productionId);
+      if (!ad) return null;
+      const state = adState[ad.id] || {};
+      const variant = (ad.variants||[]).find(v => v.id === state.variantId);
       return {
-        id: libAd.id,
-        name: libAd.name,
+        id: ad.id,
+        name: ad.name,
         variantLabel: variant?.label || null,
-        stage: state.stageId,
+        stage: state.variantId ? liveStageId : null,
         liveDate: state.liveDate,
         lastEdited: state.lastEdited,
         note: ''
       };
-    }).sort((a,b) => {
+    }).filter(Boolean).sort((a,b) => {
       const aLive = stages.find(s=>s.id===a.stage)?.isLive ? 0 : 1;
       const bLive = stages.find(s=>s.id===b.stage)?.isLive ? 0 : 1;
       return aLive - bLive;

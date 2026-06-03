@@ -3215,14 +3215,16 @@ async function loadData() {
   try { progTemplates = JSON.parse(localStorage.getItem('wtm_prog_templates') || '[]'); } catch { progTemplates = []; }
   try {
     const saved = JSON.parse(localStorage.getItem('wtm_adboard') || '{}');
-    if (saved && Object.keys(saved).length) adBoardData = { stages:[], countries:[], libraries:[], groups:[], ...saved };
-    // Migration: old 'library' array → 'libraries'
+    if (saved && Object.keys(saved).length) adBoardData = { stages:[], countries:[], libraries:[], groups:[], production:[], ...saved };
     if (adBoardData.library?.length && !adBoardData.libraries?.length) {
       adBoardData.libraries = [{id:'lib_legacy',name:'Main Library',ads:adBoardData.library}];
     }
     if (!adBoardData.libraries) adBoardData.libraries = [];
+    if (!adBoardData.production) adBoardData.production = [];
     if (!adBoardData.countries) adBoardData.countries = [];
     adBoardData.countries.forEach(c => { if (!c.adState) c.adState = {}; });
+    // Migrate existing library ads → production
+    migrateLibraryToProduction();
     loadAdBoard();
   } catch {}
   const localTasks = [...tasks];
@@ -7098,7 +7100,7 @@ function deleteTemplate(id) {
 // AD BOARD (Projects integration)
 // ============================================================
 const ADS_API = 'https://9t3zmb9iij.execute-api.ap-southeast-2.amazonaws.com/ads';
-let adBoardData = { stages: [], countries: [], libraries: [], groups: [] };
+let adBoardData = { stages: [], countries: [], libraries: [], groups: [], production: [] };
 let adBoardTab = 'board'; // board | settings
 try { adBoardData = JSON.parse(localStorage.getItem('wtm_adboard') || '{}') || { stages:[], countries:[], libraries:[], groups:[] }; } catch {}
 // Migration: convert old single 'library' array to new 'libraries' array
@@ -7143,12 +7145,13 @@ async function loadAdBoard() {
     const hasData = (data.stages?.length || data.countries?.length || data.libraries?.length || data.library?.length || data.groups?.length);
     if (hasData) {
       // Merge cloud data, don't overwrite with empties
-      const merged = { stages:[], countries:[], libraries:[], groups:[], ...adBoardData, ...data };
+      const merged = { stages:[], countries:[], libraries:[], groups:[], production:[], ...adBoardData, ...data };
       // Migration: old library array → libraries
       if (merged.library?.length && !merged.libraries?.length) {
         merged.libraries = [{id:'lib_legacy', name:'Main Library', ads: merged.library}];
       }
       if (!merged.libraries) merged.libraries = [];
+      if (!merged.production) merged.production = [];
       merged.countries?.forEach(c => { if (!c.adState) c.adState = {}; });
       adBoardData = merged;
       localStorage.setItem('wtm_adboard', JSON.stringify(adBoardData));
@@ -7179,10 +7182,11 @@ function renderAdBoardNav() {
   const nav = document.getElementById('adBoardNav');
   if (!nav) return;
   const tabs = [
-    { id:'board',    icon:'fa-globe',         label:'Countries' },
-    { id:'libraries',icon:'fa-database',      label:'Libraries' },
-    { id:'groups',   icon:'fa-earth-oceania', label:'Regions' },
-    { id:'settings', icon:'fa-sliders',       label:'Settings' }
+    { id:'board',      icon:'fa-globe',         label:'Countries' },
+    { id:'production', icon:'fa-industry',      label:'Production' },
+    { id:'libraries',  icon:'fa-database',      label:'Libraries' },
+    { id:'groups',     icon:'fa-earth-oceania', label:'Regions' },
+    { id:'settings',   icon:'fa-sliders',       label:'Settings' }
   ];
   nav.innerHTML = tabs.map(t =>
     `<button onclick="setAdBoardTab('${t.id}')" style="background:${adBoardTab===t.id?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab===t.id?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid ${t.icon}" style="margin-right:4px;font-size:10px"></i>${t.label}</button>`
@@ -7193,7 +7197,8 @@ function renderAdBoardContent() {
   const cont = document.getElementById('adBoardContent');
   if (!cont) return;
   if (adBoardTab === 'board')     cont.innerHTML = renderCountriesView();
-  if (adBoardTab === 'libraries') cont.innerHTML = renderLibrariesView();
+  if (adBoardTab === 'libraries')  cont.innerHTML = renderLibrariesView();
+  if (adBoardTab === 'production') cont.innerHTML = renderProductionView();
   if (adBoardTab === 'groups')    cont.innerHTML = renderAdGroups();
   if (adBoardTab === 'settings')  cont.innerHTML = renderAdSettings();
 }
@@ -7283,51 +7288,46 @@ function renderCountryPanel(country) {
 function renderCountryAds(country, lib) {
   const stages = adBoardData.stages || [];
   const liveStage = stages.find(s => s.isLive);
-  const ads = lib.ads || [];
-  if (!ads.length) {
+  const refs = lib.ads || [];
+  if (!refs.length) {
     return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;color:var(--text3)">
       Library "${escHtml(lib.name)}" has no ads yet. <button onclick="setAdBoardTab('libraries')" style="background:none;border:none;color:var(--low);cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-decoration:underline">Add ads</button>
     </div>`;
   }
 
-  // Get country-specific overrides (stage + variant per ad)
   if (!country.adState) country.adState = {};
+
+  // Resolve refs to production ads
+  const ads = refs.map(ref => getProdAd(ref.productionId)).filter(Boolean);
 
   return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
     ${ads.map(ad => {
       const state = country.adState[ad.id] || {};
-      const stage = stages.find(s => s.id === state.stageId);
-      const color = stage?.color || '#666';
-      const isLive = stage?.isLive || false;
       const variants = ad.variants || [];
+      const readyVariants = variants.filter(isVariantReady);
       const activeVariant = variants.find(v => v.id === state.variantId);
-      const lastEdited = state.lastEdited ? new Date(state.lastEdited).toLocaleDateString('en-AU',{day:'2-digit',month:'short'}) : '';
-      const daysLive = isLive && state.liveDate ? Math.round((new Date()-new Date(state.liveDate+'T00:00:00'))/86400000) : 0;
+      const isLive = !!state.variantId && !!state.liveDate;
+      const daysLive = isLive ? Math.round((new Date()-new Date(state.liveDate+'T00:00:00'))/86400000) : 0;
       const isStale = isLive && daysLive >= 14;
+      const lastEdited = state.lastEdited ? new Date(state.lastEdited).toLocaleDateString('en-AU',{day:'2-digit',month:'short'}) : '';
 
-      return `<div style="background:var(--bg3);border:1px solid ${isStale?'rgba(240,184,77,0.4)':isLive?color+'44':'var(--border)'};border-radius:var(--radius-sm);padding:12px 14px;${isStale?'border-left:3px solid var(--med)':isLive?'border-left:3px solid '+color:''}">
+      return `<div style="background:var(--bg3);border:1px solid ${isStale?'rgba(240,184,77,0.4)':isLive?'rgba(77,207,142,0.35)':'var(--border)'};border-radius:var(--radius-sm);padding:12px 14px;${isStale?'border-left:3px solid var(--med)':isLive?'border-left:3px solid var(--low)':''}">
         ${isStale?`<div style="font-size:10px;font-weight:700;color:var(--med);background:var(--med-bg);border-radius:4px;padding:2px 7px;margin-bottom:8px;display:inline-flex;align-items:center;gap:4px"><i class="fa-solid fa-rotate" style="font-size:9px"></i> Live ${daysLive}d — needs refresh</div>`:''}
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
-          <div style="width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;${isLive?'box-shadow:0 0 6px '+color:''}"></div>
+          <div style="width:9px;height:9px;border-radius:50%;background:${isLive?'var(--low)':'var(--text3)'};flex-shrink:0;${isLive?'box-shadow:0 0 6px var(--low)':''}"></div>
           <span style="font-size:13px;font-weight:800;color:${isLive?'var(--text)':'var(--text2)'};flex:1;opacity:${isLive?1:0.75}">${escHtml(ad.name)}${activeVariant?`<span style="font-size:11px;color:var(--accent);font-family:'JetBrains Mono',monospace;margin-left:5px;font-weight:700">: ${escHtml(activeVariant.label)}</span>`:''}</span>
         </div>
-        <!-- Variant picker -->
-        ${variants.length ? `<div style="margin-bottom:6px">
-          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Variant</div>
+        ${readyVariants.length ? `<div style="margin-bottom:6px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Live Variant</div>
           <select onchange="setCountryAdVariant('${country.id}','${ad.id}',this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text);outline:none;cursor:pointer">
-            <option value="">— No variant —</option>
-            ${variants.map((v,i) => `<option value="${v.id}" ${state.variantId===v.id?'selected':''}>#${i+1} ${escHtml(v.label||'Variant '+(i+1))}</option>`).join('')}
+            <option value="">— Not live —</option>
+            ${readyVariants.map((v,i) => {
+              const stage = stages.find(s => s.id === v.stageId);
+              return `<option value="${v.id}" ${state.variantId===v.id?'selected':''}>${escHtml(v.label)}${stage?' · '+stage.name:''}</option>`;
+            }).join('')}
           </select>
-        </div>` : ''}
-        <!-- Stage picker -->
-        <div style="margin-bottom:6px">
-          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Stage</div>
-          <select onchange="setCountryAdStage('${country.id}','${ad.id}',this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text);outline:none;cursor:pointer">
-            <option value="">— No stage —</option>
-            ${stages.map(s => `<option value="${s.id}" ${state.stageId===s.id?'selected':''}>${escHtml(s.name)}</option>`).join('')}
-          </select>
-        </div>
-        ${isLive ? `<div style="margin-bottom:6px">
+        </div>` : `<div style="font-size:11px;color:var(--text3);font-style:italic">No approved/live variants in production yet</div>`}
+        ${state.variantId ? `<div style="margin-bottom:6px">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Live Since</div>
           <input type="date" value="${state.liveDate||''}" onchange="setCountryAdLiveDate('${country.id}','${ad.id}',this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text);outline:none">
         </div>` : ''}
@@ -7427,6 +7427,10 @@ function setActiveLibrary(id) {
 }
 
 function renderLibraryEditor(lib) {
+  const prod = adBoardData.production || [];
+  const usedIds = new Set((lib.ads||[]).map(r => r.productionId));
+  const available = prod.filter(p => !usedIds.has(p.id));
+
   return `<div style="max-width:760px">
     <!-- Library header -->
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
@@ -7435,36 +7439,56 @@ function renderLibraryEditor(lib) {
       <button onclick="deleteLibrary('${lib.id}')" class="task-act-btn del" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
     </div>
 
-    <!-- Ads list with variants -->
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-      ${(lib.ads||[]).length ? lib.ads.map(ad => {
+    <!-- Ad references list -->
+    <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+      ${(lib.ads||[]).length ? lib.ads.map(ref => {
+        const ad = getProdAd(ref.productionId);
+        if (!ad) return `<div style="padding:10px 12px;background:var(--bg3);border:1px dashed var(--border2);border-radius:var(--radius-sm);color:var(--text3);font-size:12px;display:flex;align-items:center;gap:8px">⚠ Missing production ad <button class="task-act-btn del" onclick="removeFromLibrary('${lib.id}','${ref.productionId}')" style="font-size:10px;margin-left:auto"><i class="fa-solid fa-trash"></i></button></div>`;
         const variants = ad.variants || [];
-        return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:${variants.length?'1px solid var(--border)':'none'}">
-            <input type="text" value="${escHtml(ad.name)}" onchange="renameLibAd('${lib.id}','${ad.id}',this.value)" style="flex:1;background:none;border:none;font-size:13px;font-weight:700;color:var(--text);outline:none;padding:2px 0">
-            <button onclick="addLibVariant('${lib.id}','${ad.id}')" style="background:none;border:1px dashed var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;font-weight:600" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">+ Variant</button>
-            <button class="task-act-btn del" onclick="deleteLibAd('${lib.id}','${ad.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
-          </div>
-          ${variants.length ? variants.map((v,vi) => `
-            <div style="display:flex;align-items:center;gap:8px;padding:7px 12px 7px 24px;border-bottom:1px solid var(--border);background:var(--bg2)">
-              <span style="font-size:11px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;width:32px;flex-shrink:0">#${vi+1}</span>
-              <input type="text" value="${escHtml(v.label||'Variant '+(vi+1))}" onchange="renameLibVariant('${lib.id}','${ad.id}','${v.id}',this.value)" style="flex:1;background:none;border:none;font-size:12px;color:var(--text2);outline:none;padding:2px 0">
-              <button class="task-act-btn del" onclick="deleteLibVariant('${lib.id}','${ad.id}','${v.id}')" style="font-size:9px;opacity:0.6"><i class="fa-solid fa-xmark"></i></button>
-            </div>`).join('') : ''}
+        const readyVariants = variants.filter(isVariantReady);
+        return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;display:flex;align-items:center;gap:10px">
+          <i class="fa-solid fa-rectangle-ad" style="color:var(--low);font-size:12px"></i>
+          <span style="flex:1;font-size:13px;font-weight:700;color:var(--text)">${escHtml(ad.name)}</span>
+          <span style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">${readyVariants.length}/${variants.length} ready</span>
+          <button class="task-act-btn del" onclick="removeFromLibrary('${lib.id}','${ref.productionId}')" style="font-size:10px"><i class="fa-solid fa-xmark"></i></button>
         </div>`;
-      }).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in this library yet.</div>'}
+      }).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in this library yet — add from Production below.</div>'}
     </div>
 
-    <!-- Add ad row -->
+    <!-- Add from production -->
     <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add Ad to "${escHtml(lib.name)}"</div>
-      <div style="display:flex;gap:8px">
-        <input class="subtask-input" id="newLibAdName" type="text" placeholder="Ad name… e.g. SCC" style="flex:1" onkeydown="if(event.key==='Enter')addLibAdToCurrent()">
-        <button class="subtask-add-btn" onclick="addLibAdToCurrent()"><i class="fa-solid fa-plus" style="margin-right:4px;font-size:10px"></i>Add</button>
-      </div>
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add Ad from Production</div>
+      ${prod.length ? `<div style="display:flex;gap:8px">
+        <select id="newLibRefSelect" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 10px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;cursor:pointer">
+          ${available.length ? available.map(p => `<option value="${p.id}">${escHtml(p.name)} (${(p.variants||[]).length} variant${(p.variants||[]).length!==1?'s':''})</option>`).join('') : '<option disabled>All production ads already in this library</option>'}
+        </select>
+        <button class="subtask-add-btn" onclick="addToLibraryFromProd('${lib.id}')" ${!available.length?'disabled style="opacity:0.4;cursor:not-allowed"':''}>+ Add</button>
+      </div>` : `<div style="color:var(--text3);font-size:12px">No ads in production yet — <button onclick="setAdBoardTab('production')" style="background:none;border:none;color:var(--low);cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;text-decoration:underline">create one</button>.</div>`}
     </div>
   </div>`;
 }
+
+function addToLibraryFromProd(libId) {
+  const lib = adBoardData.libraries.find(l => l.id === libId);
+  const sel = document.getElementById('newLibRefSelect');
+  if (!lib || !sel?.value) return;
+  if (!lib.ads) lib.ads = [];
+  if (!lib.ads.find(r => r.productionId === sel.value)) {
+    lib.ads.push({ productionId: sel.value });
+  }
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+function removeFromLibrary(libId, prodId) {
+  const lib = adBoardData.libraries.find(l => l.id === libId);
+  if (!lib) return;
+  lib.ads = (lib.ads||[]).filter(r => r.productionId !== prodId);
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+
 
 // ── LIBRARY CRUD ──────────────────────────────────────────────
 function addLibrary() {
@@ -7511,60 +7535,11 @@ function deleteLibrary(libId) {
   renderAdBoardContent();
 }
 
-function addLibAdToCurrent() {
-  const lib = adBoardData.libraries.find(l => l.id === activeLibraryId);
-  if (!lib) return;
-  const inp = document.getElementById('newLibAdName');
-  const name = inp.value.trim();
-  if (!name) return;
-  if (!lib.ads) lib.ads = [];
-  lib.ads.push({ id: uid(), name, variants: [] });
-  inp.value = '';
-  saveAdBoard();
-  renderAdBoardContent();
-  setTimeout(() => document.getElementById('newLibAdName')?.focus(), 50);
-}
 
-function renameLibAd(libId, adId, name) {
-  const lib = adBoardData.libraries.find(l => l.id === libId);
-  const ad = lib?.ads.find(a => a.id === adId);
-  if (ad) { ad.name = name.trim() || 'Untitled'; saveAdBoard(); }
-}
 
-function deleteLibAd(libId, adId) {
-  const lib = adBoardData.libraries.find(l => l.id === libId);
-  if (!lib) return;
-  lib.ads = lib.ads.filter(a => a.id !== adId);
-  saveAdBoard();
-  renderAdBoardContent();
-}
 
-function addLibVariant(libId, adId) {
-  const lib = adBoardData.libraries.find(l => l.id === libId);
-  const ad = lib?.ads.find(a => a.id === adId);
-  if (!ad) return;
-  if (!ad.variants) ad.variants = [];
-  const num = ad.variants.length + 1;
-  ad.variants.push({ id: uid(), label: 'Version ' + num });
-  saveAdBoard();
-  renderAdBoardContent();
-}
 
-function renameLibVariant(libId, adId, variantId, label) {
-  const lib = adBoardData.libraries.find(l => l.id === libId);
-  const ad = lib?.ads.find(a => a.id === adId);
-  const v = ad?.variants.find(x => x.id === variantId);
-  if (v) { v.label = label.trim() || 'Untitled'; saveAdBoard(); }
-}
 
-function deleteLibVariant(libId, adId, variantId) {
-  const lib = adBoardData.libraries.find(l => l.id === libId);
-  const ad = lib?.ads.find(a => a.id === adId);
-  if (!ad) return;
-  ad.variants = (ad.variants||[]).filter(v => v.id !== variantId);
-  saveAdBoard();
-  renderAdBoardContent();
-}
 
 // ── SETTINGS ──────────────────────────────────────────────────
 function renderAdSettings() {
@@ -7928,14 +7903,16 @@ function initApp() {
   try { progTemplates = JSON.parse(localStorage.getItem('wtm_prog_templates') || '[]'); } catch { progTemplates = []; }
   try {
     const saved = JSON.parse(localStorage.getItem('wtm_adboard') || '{}');
-    if (saved && Object.keys(saved).length) adBoardData = { stages:[], countries:[], libraries:[], groups:[], ...saved };
-    // Migration: old 'library' array → 'libraries'
+    if (saved && Object.keys(saved).length) adBoardData = { stages:[], countries:[], libraries:[], groups:[], production:[], ...saved };
     if (adBoardData.library?.length && !adBoardData.libraries?.length) {
       adBoardData.libraries = [{id:'lib_legacy',name:'Main Library',ads:adBoardData.library}];
     }
     if (!adBoardData.libraries) adBoardData.libraries = [];
+    if (!adBoardData.production) adBoardData.production = [];
     if (!adBoardData.countries) adBoardData.countries = [];
     adBoardData.countries.forEach(c => { if (!c.adState) c.adState = {}; });
+    // Migrate existing library ads → production
+    migrateLibraryToProduction();
     loadAdBoard();
   } catch {}
   restoreTimers();
