@@ -4942,6 +4942,7 @@ document.addEventListener('keydown', e => {
     closeProjProgListModal();
     closeProgTemplatesModal();
     closeAdModal && closeAdModal();
+    closeAdHistoryModal && closeAdHistoryModal();
     closeGroupModal && closeGroupModal();
     closeIncomeModal();
     closeBillModal();
@@ -7305,10 +7306,11 @@ function renderCountryAds(country, lib) {
       const state = country.adState[ad.id] || {};
       const variants = ad.variants || [];
       const activeVariant = variants.find(v => v.id === state.variantId);
-      const isLive = !!state.variantId && !!state.liveDate;
-      const daysLive = isLive ? Math.round((new Date()-new Date(state.liveDate+'T00:00:00'))/86400000) : 0;
+      const isLive = !!state.variantId;
+      const daysLive = isLive && state.liveDate ? Math.round((new Date()-new Date(state.liveDate+'T00:00:00'))/86400000) : 0;
       const isStale = isLive && daysLive >= 14;
       const lastEdited = state.lastEdited ? new Date(state.lastEdited).toLocaleDateString('en-AU',{day:'2-digit',month:'short'}) : '';
+      const historyCount = (state.history||[]).length;
 
       return `<div style="background:var(--bg3);border:1px solid ${isStale?'rgba(240,184,77,0.4)':isLive?'rgba(77,207,142,0.35)':'var(--border)'};border-radius:var(--radius-sm);padding:12px 14px;${isStale?'border-left:3px solid var(--med)':isLive?'border-left:3px solid var(--low)':''}">
         ${isStale?`<div style="font-size:10px;font-weight:700;color:var(--med);background:var(--med-bg);border-radius:4px;padding:2px 7px;margin-bottom:8px;display:inline-flex;align-items:center;gap:4px"><i class="fa-solid fa-rotate" style="font-size:9px"></i> Live ${daysLive}d — needs refresh</div>`:''}
@@ -7327,7 +7329,10 @@ function renderCountryAds(country, lib) {
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Live Since</div>
           <input type="date" value="${state.liveDate||''}" onchange="setCountryAdLiveDate('${country.id}','${ad.id}',this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text);outline:none">
         </div>` : ''}
-        ${lastEdited?`<div style="font-size:10px;color:var(--text3);margin-top:4px">✎ ${lastEdited}</div>`:''}
+        ${lastEdited?`<div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+          <span style="font-size:10px;color:var(--text3);flex:1">✎ ${lastEdited}</span>
+          ${historyCount?`<button onclick="showAdHistory('${country.id}','${ad.id}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:10px;color:var(--text3);font-family:'Inter',sans-serif;font-weight:600" onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'" onmouseout="this.style.color='var(--text3)';this.style.borderColor='var(--border)'"><i class="fa-solid fa-clock-rotate-left" style="font-size:9px;margin-right:3px"></i>${historyCount} run${historyCount!==1?'s':''}</button>`:''}
+        </div>`:historyCount?`<button onclick="showAdHistory('${country.id}','${ad.id}')" style="background:none;border:1px solid var(--border);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:10px;color:var(--text3);font-family:'Inter',sans-serif;font-weight:600;margin-top:4px"><i class="fa-solid fa-clock-rotate-left" style="font-size:9px;margin-right:3px"></i>${historyCount} past run${historyCount!==1?'s':''}</button>`:''}
       </div>`;
     }).join('')}
   </div>`;
@@ -7352,12 +7357,35 @@ function setCountryAdVariant(countryId, adId, variantId) {
   const c = adBoardData.countries.find(x => x.id === countryId);
   if (!c) return;
   const state = ensureAdState(c, adId);
+  const now = new Date().toISOString();
+  const today = now.split('T')[0];
+
+  // If a different variant was previously live — log it as ended
+  if (state.variantId && state.variantId !== variantId && state.liveDate) {
+    if (!state.history) state.history = [];
+    state.history.push({
+      variantId: state.variantId,
+      from:      state.liveDate,
+      to:        today,
+      duration:  Math.max(1, Math.round((new Date(today) - new Date(state.liveDate+'T00:00:00')) / 86400000))
+    });
+  }
+
   state.variantId = variantId || null;
-  state.lastEdited = new Date().toISOString();
-  // Auto-set live date when selecting a variant (or clear it when deselecting)
+  state.lastEdited = now;
   if (variantId) {
-    if (!state.liveDate) state.liveDate = new Date().toISOString().split('T')[0];
+    state.liveDate = today; // always reset to today when activating
   } else {
+    // Going to "Not live" — log the last run if there was one
+    if (state.liveDate && !state.history?.some(h => h.from === state.liveDate)) {
+      if (!state.history) state.history = [];
+      state.history.push({
+        variantId: null,
+        from:      state.liveDate,
+        to:        today,
+        duration:  Math.max(1, Math.round((new Date(today) - new Date(state.liveDate+'T00:00:00')) / 86400000))
+      });
+    }
     state.liveDate = null;
   }
   saveAdBoard();
@@ -7638,6 +7666,54 @@ function migrateLibraryToProduction() {
 }
 
 function getProdAd(id) { return (adBoardData.production||[]).find(p => p.id === id); }
+
+function showAdHistory(countryId, adId) {
+  const c = adBoardData.countries.find(x => x.id === countryId);
+  const ad = getProdAd(adId);
+  if (!c || !ad) return;
+  const state = c.adState?.[adId] || {};
+  const history = state.history || [];
+  const variants = ad.variants || [];
+  const variantName = vid => variants.find(v => v.id === vid)?.label || '—';
+
+  // Include current run if active
+  const today = new Date().toISOString().split('T')[0];
+  const fullLog = [...history];
+  if (state.variantId && state.liveDate) {
+    const days = Math.max(1, Math.round((new Date() - new Date(state.liveDate+'T00:00:00')) / 86400000));
+    fullLog.push({
+      variantId: state.variantId,
+      from: state.liveDate,
+      to: today,
+      duration: days,
+      current: true
+    });
+  }
+  fullLog.sort((a,b) => b.from.localeCompare(a.from));
+
+  const totalDays = fullLog.reduce((a,h) => a + (h.duration||0), 0);
+
+  document.getElementById('adHistoryTitle').textContent = `${ad.name} — ${c.flag||''} ${c.name}`;
+  document.getElementById('adHistoryBody').innerHTML = fullLog.length ? `
+    <div style="font-size:11px;color:var(--text3);margin-bottom:12px;font-family:'JetBrains Mono',monospace">
+      Total live: ${totalDays} day${totalDays!==1?'s':''} across ${fullLog.length} run${fullLog.length!==1?'s':''}
+    </div>
+    ${fullLog.map(h => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg3);border:1px solid ${h.current?'rgba(77,207,142,0.3)':'var(--border)'};border-radius:var(--radius-sm);margin-bottom:6px;${h.current?'border-left:3px solid var(--low)':''}">
+        ${h.current?`<span style="width:8px;height:8px;border-radius:50%;background:var(--low);box-shadow:0 0 6px var(--low);flex-shrink:0"></span>`:`<span style="width:8px;height:8px;border-radius:50%;background:var(--text3);flex-shrink:0"></span>`}
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700;color:var(--text)">${escHtml(variantName(h.variantId)) || 'Removed'}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:'JetBrains Mono',monospace">${h.from} → ${h.current?'now':h.to}</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:14px;font-weight:800;font-family:'JetBrains Mono',monospace;color:${h.current?'var(--low)':'var(--text2)'}">${h.duration}d</div>
+          ${h.current?`<div style="font-size:9px;color:var(--low);font-weight:700">LIVE NOW</div>`:''}
+        </div>
+      </div>`).join('')}
+  ` : `<div style="text-align:center;padding:24px;color:var(--text3)">No activation history yet</div>`;
+  document.getElementById('adHistoryModal').style.display = 'flex';
+}
+function closeAdHistoryModal() { document.getElementById('adHistoryModal').style.display = 'none'; }
 
 function isVariantReady(v) {
   const stage = adBoardData.stages.find(s => s.id === v.stageId);
@@ -8491,6 +8567,15 @@ if (isLoggedIn()) {
       </div>
     </div>
     <div class="modal-footer"><button class="btn-secondary" onclick="closeGroupModal()">Cancel</button><button class="btn-primary" onclick="saveGroup()">Save Group</button></div>
+  </div>
+</div>
+
+<!-- AD HISTORY MODAL -->
+<div class="modal-overlay" id="adHistoryModal" style="display:none" onclick="if(event.target===this)closeAdHistoryModal()">
+  <div class="modal" style="width:500px;max-height:80vh;overflow-y:auto">
+    <div class="modal-title"><i class="fa-solid fa-clock-rotate-left" style="color:var(--accent)"></i> <span id="adHistoryTitle">Activation History</span></div>
+    <div id="adHistoryBody"></div>
+    <div class="modal-footer"><button class="btn-secondary" onclick="closeAdHistoryModal()">Close</button></div>
   </div>
 </div>
 </html>
