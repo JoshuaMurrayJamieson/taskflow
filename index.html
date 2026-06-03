@@ -7607,6 +7607,151 @@ function deleteCountry(id) {
   renderAdBoardContent();
 }
 
+// ============================================================
+// PRODUCTION
+// ============================================================
+function migrateLibraryToProduction() {
+  if (!adBoardData.production) adBoardData.production = [];
+  const seen = new Set(adBoardData.production.map(p => p.id));
+  (adBoardData.libraries||[]).forEach(lib => {
+    if (!Array.isArray(lib.ads)) return;
+    const refs = [];
+    lib.ads.forEach(ad => {
+      if (ad.productionId && !ad.variants) { refs.push({ productionId: ad.productionId }); return; }
+      if (!seen.has(ad.id)) {
+        adBoardData.production.push({
+          id: ad.id, name: ad.name,
+          variants: (ad.variants||[]).map(v => ({
+            id: v.id, label: v.label,
+            stageId: v.stageId || null,
+            lastEdited: v.lastEdited || null
+          }))
+        });
+        seen.add(ad.id);
+      }
+      refs.push({ productionId: ad.id });
+    });
+    lib.ads = refs;
+  });
+}
+
+function getProdAd(id) { return (adBoardData.production||[]).find(p => p.id === id); }
+
+function isVariantReady(v) {
+  const stage = adBoardData.stages.find(s => s.id === v.stageId);
+  if (!stage) return false;
+  if (stage.isLive) return true;
+  return (stage.name||'').toLowerCase().includes('approv');
+}
+
+function renderProductionView() {
+  const prod = adBoardData.production || [];
+  const stages = adBoardData.stages || [];
+  return `<div style="max-width:900px">
+    <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">
+      Build ads here and track each variant through your pipeline. Approved or Live variants become available to add to libraries.
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+      ${prod.length ? prod.map(ad => {
+        const variants = ad.variants || [];
+        return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:${variants.length?'1px solid var(--border)':'none'}">
+            <input type="text" value="${escHtml(ad.name)}" onchange="renameProdAd('${ad.id}',this.value)" style="flex:1;background:none;border:none;font-size:14px;font-weight:800;color:var(--text);outline:none;padding:2px 0">
+            <span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">${variants.length} variant${variants.length!==1?'s':''}</span>
+            <button onclick="addProdVariant('${ad.id}')" style="background:none;border:1px dashed var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;font-weight:600" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">+ Variant</button>
+            <button class="task-act-btn del" onclick="deleteProdAd('${ad.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          ${variants.map((v,vi) => {
+            const stage = stages.find(s => s.id === v.stageId);
+            const color = stage?.color || '#666';
+            const isReady = isVariantReady(v);
+            return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px 8px 24px;border-bottom:1px solid var(--border);background:var(--bg2)">
+              <span style="font-size:11px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;width:32px;flex-shrink:0">#${vi+1}</span>
+              <input type="text" value="${escHtml(v.label||'Variant '+(vi+1))}" onchange="renameProdVariant('${ad.id}','${v.id}',this.value)" style="flex:1;background:none;border:none;font-size:12px;color:var(--text2);outline:none;padding:2px 0">
+              <select onchange="setProdVariantStage('${ad.id}','${v.id}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text2);outline:none;cursor:pointer">
+                <option value="">— No stage —</option>
+                ${stages.map(s => `<option value="${s.id}" ${v.stageId===s.id?'selected':''}>${escHtml(s.name)}</option>`).join('')}
+              </select>
+              ${stage?`<span style="font-size:10px;font-weight:700;color:${color};background:${color}18;border:1px solid ${color}40;border-radius:8px;padding:1px 7px;white-space:nowrap">${escHtml(stage.name)}</span>`:''}
+              ${isReady?`<span style="font-size:9px;font-weight:700;color:var(--low);background:var(--low-bg);border-radius:8px;padding:1px 6px;white-space:nowrap" title="Ready for libraries">✓</span>`:''}
+              <button class="task-act-btn del" onclick="deleteProdVariant('${ad.id}','${v.id}')" style="font-size:9px;opacity:0.6"><i class="fa-solid fa-xmark"></i></button>
+            </div>`;
+          }).join('')}
+        </div>`;
+      }).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in production yet.</div>'}
+    </div>
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">New Ad in Production</div>
+      <div style="display:flex;gap:8px">
+        <input class="subtask-input" id="newProdAdName" type="text" placeholder="Ad name… e.g. SCC, Summer Sale" style="flex:1" onkeydown="if(event.key==='Enter')addProdAd()">
+        <button class="subtask-add-btn" onclick="addProdAd()"><i class="fa-solid fa-plus" style="margin-right:4px;font-size:10px"></i>Create</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function addProdAd() {
+  const inp = document.getElementById('newProdAdName');
+  const name = inp.value.trim();
+  if (!name) return;
+  if (!adBoardData.production) adBoardData.production = [];
+  adBoardData.production.push({ id: uid(), name, variants: [] });
+  inp.value = '';
+  saveAdBoard();
+  renderAdBoardContent();
+  setTimeout(() => document.getElementById('newProdAdName')?.focus(), 50);
+}
+
+function renameProdAd(id, name) {
+  const ad = getProdAd(id);
+  if (ad) { ad.name = name.trim() || 'Untitled'; saveAdBoard(); }
+}
+
+function deleteProdAd(id) {
+  if (!confirm('Delete this ad and all its variants?')) return;
+  adBoardData.production = adBoardData.production.filter(a => a.id !== id);
+  (adBoardData.libraries||[]).forEach(lib => {
+    lib.ads = (lib.ads||[]).filter(ref => ref.productionId !== id);
+  });
+  (adBoardData.countries||[]).forEach(c => {
+    if (c.adState && c.adState[id]) delete c.adState[id];
+  });
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+function addProdVariant(adId) {
+  const ad = getProdAd(adId);
+  if (!ad) return;
+  if (!ad.variants) ad.variants = [];
+  ad.variants.push({ id: uid(), label: 'Version ' + (ad.variants.length + 1), stageId: null, lastEdited: new Date().toISOString() });
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+function renameProdVariant(adId, vId, label) {
+  const v = getProdAd(adId)?.variants?.find(x => x.id === vId);
+  if (v) { v.label = label.trim() || 'Untitled'; v.lastEdited = new Date().toISOString(); saveAdBoard(); }
+}
+
+function setProdVariantStage(adId, vId, stageId) {
+  const v = getProdAd(adId)?.variants?.find(x => x.id === vId);
+  if (v) { v.stageId = stageId || null; v.lastEdited = new Date().toISOString(); saveAdBoard(); renderAdBoardContent(); }
+}
+
+function deleteProdVariant(adId, vId) {
+  const ad = getProdAd(adId);
+  if (!ad) return;
+  ad.variants = (ad.variants||[]).filter(v => v.id !== vId);
+  (adBoardData.countries||[]).forEach(c => {
+    if (c.adState && c.adState[adId] && c.adState[adId].variantId === vId) {
+      c.adState[adId].variantId = null;
+    }
+  });
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
 // REGIONAL GROUPS
 // ============================================================
 let editGroupId = null;
