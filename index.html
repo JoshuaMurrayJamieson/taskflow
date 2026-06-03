@@ -7087,9 +7087,19 @@ function deleteTemplate(id) {
 // AD BOARD (Projects integration)
 // ============================================================
 const ADS_API = 'https://9t3zmb9iij.execute-api.ap-southeast-2.amazonaws.com/ads';
-let adBoardData = { stages: [], countries: [], ads: [], library: [], groups: [] };
+let adBoardData = { stages: [], countries: [], libraries: [], groups: [] };
 let adBoardTab = 'board'; // board | settings
-try { adBoardData = JSON.parse(localStorage.getItem('wtm_adboard') || '{}') || { stages:[], countries:[], ads:[] }; } catch {}
+try { adBoardData = JSON.parse(localStorage.getItem('wtm_adboard') || '{}') || { stages:[], countries:[], libraries:[], groups:[] }; } catch {}
+// Migration: convert old single 'library' array to new 'libraries' array
+if (!adBoardData.libraries) {
+  adBoardData.libraries = [];
+  if (adBoardData.library && adBoardData.library.length) {
+    adBoardData.libraries.push({ id: 'lib_legacy', name: 'Main Library', ads: adBoardData.library });
+  }
+  delete adBoardData.library;
+}
+if (!adBoardData.countries) adBoardData.countries = [];
+adBoardData.countries.forEach(c => { if (!c.adState) c.adState = {}; });
 
 function saveAdBoard() {
   localStorage.setItem('wtm_adboard', JSON.stringify(adBoardData));
@@ -7119,103 +7129,440 @@ async function loadAdBoard() {
     if (!res.ok) return;
     const data = await res.json();
     // Only update if cloud has meaningful data
-    const hasData = (data.stages?.length || data.countries?.length || data.ads?.length || data.library?.length || data.groups?.length);
+    const hasData = (data.stages?.length || data.countries?.length || data.libraries?.length || data.library?.length || data.groups?.length);
     if (hasData) {
-      adBoardData = { stages:[], countries:[], ads:[], library:[], groups:[], ...data };
+      adBoardData = { stages:[], countries:[], libraries:[], groups:[], ...data };
+      // Migration on load
+      if (!adBoardData.libraries) {
+        adBoardData.libraries = [];
+        if (adBoardData.library?.length) adBoardData.libraries.push({id:'lib_legacy',name:'Main Library',ads:adBoardData.library});
+      }
+      adBoardData.countries?.forEach(c => { if (!c.adState) c.adState = {}; });
       localStorage.setItem('wtm_adboard', JSON.stringify(adBoardData));
     }
   } catch(e) { console.warn('loadAdBoard failed:', e); }
 }
 
 function renderAdBoard(container) {
-  const { stages, countries, ads } = adBoardData;
-  const liveStage = stages.find(s => s.isLive);
-
-  container.innerHTML = `
-  <div style="display:flex;flex-direction:column;gap:0;height:100%">
-    <!-- Topbar -->
-    <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;flex-wrap:wrap">
-      <span style="font-size:14px;font-weight:800;color:var(--text);flex-shrink:0"><i class="fa-solid fa-tower-broadcast" style="color:var(--low);margin-right:6px"></i>Ad Board</span>
-      <div style="display:flex;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;flex-shrink:0">
-        <button onclick="setAdBoardTab('board')" style="background:${adBoardTab==='board'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='board'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-table-columns" style="margin-right:4px;font-size:10px"></i>Board</button>
-        <button onclick="setAdBoardTab('library')" style="background:${adBoardTab==='library'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='library'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-database" style="margin-right:4px;font-size:10px"></i>Library</button>
-        <button onclick="setAdBoardTab('groups')" style="background:${adBoardTab==='groups'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='groups'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-earth-oceania" style="margin-right:4px;font-size:10px"></i>Regions</button>
-        <button onclick="setAdBoardTab('settings')" style="background:${adBoardTab==='settings'?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab==='settings'?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid fa-sliders" style="margin-right:4px;font-size:10px"></i>Settings</button>
+  // Only rebuild the topbar + content holder once — content is rendered separately
+  if (!container.dataset.built) {
+    container.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:0;height:100%">
+      <!-- Topbar -->
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg2);flex-shrink:0;flex-wrap:wrap">
+        <span style="font-size:14px;font-weight:800;color:var(--text);flex-shrink:0"><i class="fa-solid fa-tower-broadcast" style="color:var(--low);margin-right:6px"></i>Ad Board</span>
+        <div id="adBoardNav" style="display:flex;gap:2px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:3px;flex-shrink:0"></div>
+        <a href="ads.html" target="_blank" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:5px 12px;background:var(--low-bg);color:var(--low);border:1px solid rgba(77,207,142,0.3);border-radius:var(--radius-sm);text-decoration:none;flex-shrink:0;margin-left:auto"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px"></i>Public View</a>
       </div>
-      <a href="ads.html" target="_blank" style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;padding:5px 12px;background:var(--low-bg);color:var(--low);border:1px solid rgba(77,207,142,0.3);border-radius:var(--radius-sm);text-decoration:none;flex-shrink:0;white-space:nowrap"><i class="fa-solid fa-arrow-up-right-from-square" style="font-size:10px"></i>Public View</a>
-    </div>
-    <!-- Content -->
-    <div style="flex:1;overflow-x:auto;overflow-y:auto;padding:16px">
-      ${adBoardTab==='board' ? renderAdBoardView() : adBoardTab==='library' ? renderAdLibrary() : adBoardTab==='groups' ? renderAdGroups() : renderAdSettings()}
-    </div>
-  </div>`;
+      <div id="adBoardContent" style="flex:1;overflow:auto;padding:16px"></div>
+    </div>`;
+    container.dataset.built = '1';
+  }
+  renderAdBoardNav();
+  renderAdBoardContent();
 }
 
-function setAdBoardTab(tab) { adBoardTab = tab; renderContent(); }
+function renderAdBoardNav() {
+  const nav = document.getElementById('adBoardNav');
+  if (!nav) return;
+  const tabs = [
+    { id:'board',    icon:'fa-globe',         label:'Countries' },
+    { id:'libraries',icon:'fa-database',      label:'Libraries' },
+    { id:'groups',   icon:'fa-earth-oceania', label:'Regions' },
+    { id:'settings', icon:'fa-sliders',       label:'Settings' }
+  ];
+  nav.innerHTML = tabs.map(t =>
+    `<button onclick="setAdBoardTab('${t.id}')" style="background:${adBoardTab===t.id?'var(--bg2)':'none'};border:none;border-radius:4px;padding:5px 10px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:${adBoardTab===t.id?'var(--text)':'var(--text3)'};transition:all 0.15s;white-space:nowrap"><i class="fa-solid ${t.icon}" style="margin-right:4px;font-size:10px"></i>${t.label}</button>`
+  ).join('');
+}
 
-function renderAdBoardView() {
-  const { stages, countries, ads } = adBoardData;
-  if (!countries.length) return `<div style="text-align:center;padding:40px;color:var(--text3)"><i class="fa-solid fa-tower-broadcast" style="font-size:28px;display:block;margin-bottom:10px"></i>No countries set up yet.<br>Go to <strong>Settings</strong> to add countries and stages.</div>`;
+function renderAdBoardContent() {
+  const cont = document.getElementById('adBoardContent');
+  if (!cont) return;
+  if (adBoardTab === 'board')     cont.innerHTML = renderCountriesView();
+  if (adBoardTab === 'libraries') cont.innerHTML = renderLibrariesView();
+  if (adBoardTab === 'groups')    cont.innerHTML = renderAdGroups();
+  if (adBoardTab === 'settings')  cont.innerHTML = renderAdSettings();
+}
 
-  return `<div style="display:flex;gap:12px;min-width:max-content">
-    ${countries.map(country => {
-      const countryAds = ads.filter(a => a.countryId === country.id);
-      const liveStage = stages.find(s => s.isLive);
-      const liveCount = liveStage ? countryAds.filter(a => a.stage === liveStage.id).length : 0;
-      return `<div style="width:240px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
-        <div style="padding:10px 12px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg3)">
-          <span style="font-size:18px">${country.flag||'🌍'}</span>
-          <span style="font-size:13px;font-weight:800;color:var(--text);flex:1">${escHtml(country.name)}</span>
-          ${liveCount>0?`<span style="font-size:10px;font-weight:700;color:var(--low);background:var(--low-bg);border:1px solid rgba(77,207,142,0.3);border-radius:10px;padding:1px 7px">● ${liveCount} LIVE</span>`:''}
+function setAdBoardTab(tab) {
+  adBoardTab = tab;
+  renderAdBoardNav();
+  renderAdBoardContent();
+}
+
+// ── COUNTRIES VIEW ───────────────────────────────────────────
+let activeCountryId = null;
+function setActiveCountry(id) {
+  activeCountryId = id;
+  renderAdBoardContent();
+}
+
+function renderCountriesView() {
+  const countries = adBoardData.countries || [];
+  if (!countries.length) {
+    return `<div style="text-align:center;padding:40px;color:var(--text3)">
+      <i class="fa-solid fa-globe" style="font-size:28px;display:block;margin-bottom:10px"></i>
+      No countries set up yet.<br>Go to <strong>Settings</strong> to add countries.
+    </div>`;
+  }
+  // Default to first country
+  if (!activeCountryId || !countries.find(c => c.id === activeCountryId)) {
+    activeCountryId = countries[0].id;
+  }
+  const active = countries.find(c => c.id === activeCountryId);
+
+  return `
+    <!-- Country tabs -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px">
+      ${countries.map(c => {
+        const isActive = c.id === activeCountryId;
+        const lib = adBoardData.libraries?.find(l => l.id === c.libraryId);
+        const adCount = lib ? (lib.ads||[]).length : 0;
+        return `<button onclick="setActiveCountry('${c.id}')" style="background:${isActive?'var(--bg2)':'var(--bg3)'};border:1px solid ${isActive?'var(--low)':'var(--border)'};border-radius:var(--radius-sm);padding:6px 12px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:${isActive?'var(--low)':'var(--text2)'};transition:all 0.15s;display:flex;align-items:center;gap:6px;white-space:nowrap">
+          <span style="font-size:16px">${c.flag||'🌍'}</span>
+          ${escHtml(c.name)}
+          ${adCount?`<span style="font-size:10px;background:var(--bg3);border-radius:8px;padding:1px 6px;color:var(--text3);font-family:'JetBrains Mono',monospace">${adCount}</span>`:''}
+        </button>`;
+      }).join('')}
+    </div>
+
+    <!-- Active country panel -->
+    ${active ? renderCountryPanel(active) : ''}
+  `;
+}
+
+function renderCountryPanel(country) {
+  const lib = adBoardData.libraries?.find(l => l.id === country.libraryId);
+  const libraries = adBoardData.libraries || [];
+  const stages = adBoardData.stages || [];
+  const liveStage = stages.find(s => s.isLive);
+
+  return `
+  <div style="display:flex;align-items:flex-start;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="flex:1;min-width:200px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
+        <span style="font-size:32px">${country.flag||'🌍'}</span>
+        <div>
+          <div style="font-size:20px;font-weight:800;color:var(--text)">${escHtml(country.name)}</div>
+          <div style="font-size:12px;color:var(--text3)">${lib ? lib.ads?.length + ' ads from "' + escHtml(lib.name) + '"' : 'No library loaded'}</div>
         </div>
-        <div style="padding:8px;display:flex;flex-direction:column;gap:6px">
-          ${countryAds.map(ad => {
-            const stage = stages.find(s => s.id === ad.stage);
-            const color = stage?.color || '#666';
-            const isLive = stage?.isLive || false;
-            // Check if stale (live for 14+ days)
-            const isStale = isLive && ad.liveDate && Math.round((new Date()-new Date(ad.liveDate+'T00:00:00'))/86400000) >= 14;
-            const daysLive = isLive && ad.liveDate ? Math.round((new Date()-new Date(ad.liveDate+'T00:00:00'))/86400000) : 0;
-            const lastEditStr = ad.lastEdited ? new Date(ad.lastEdited).toLocaleDateString('en-AU',{day:'2-digit',month:'short'}) : '';
-            return `<div style="background:var(--bg3);border:1px solid ${isStale?'rgba(240,184,77,0.4)':isLive?color+'44':'var(--border)'};border-radius:6px;padding:9px 11px;${isStale?'border-left:3px solid var(--med)':isLive?'border-left:3px solid '+color:''};position:relative;overflow:hidden">
-              ${isStale?`<div style="font-size:10px;font-weight:700;color:var(--med);background:var(--med-bg);border-radius:4px;padding:2px 7px;margin-bottom:6px;display:inline-flex;align-items:center;gap:4px"><i class="fa-solid fa-rotate" style="font-size:9px"></i> Live ${daysLive} days — needs refresh</div>`:''}
-              <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
-                <div style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0;${isLive?'box-shadow:0 0 6px '+color:''}"></div>
-                <span style="font-size:12px;font-weight:700;color:${isLive?'var(--text)':'var(--text2)'};flex:1;opacity:${isLive?1:0.7}">${escHtml(ad.name)}${ad.variantLabel?`<span style="font-size:10px;color:var(--accent);font-family:'JetBrains Mono',monospace;margin-left:5px;font-weight:700">: ${escHtml(ad.variantLabel)}</span>`:''}</span>
-                <button class="task-act-btn" onclick="openAdModal('${ad.id}')" style="font-size:9px;opacity:0.5"><i class="fa-solid fa-pen"></i></button>
-                <button class="task-act-btn del" onclick="deleteAd('${ad.id}')" style="font-size:9px;opacity:0.5"><i class="fa-solid fa-trash"></i></button>
-              </div>
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap">
-                <span style="font-size:10px;font-weight:700;color:${color};background:${color}18;border:1px solid ${color}40;border-radius:8px;padding:1px 7px">${stage?.name||'—'}</span>
-                ${ad.liveDate?`<span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">${ad.liveDate}</span>`:''}
-                ${lastEditStr?`<span style="font-size:10px;color:var(--text3)">✎ ${lastEditStr}</span>`:''}
-              </div>
-              ${(() => {
-                const libAd = ad.libraryId ? (adBoardData.library||[]).find(l=>l.id===ad.libraryId) : null;
-                const variants = libAd ? (libAd.variants||[]) : [];
-                if (!variants.length) return '';
-                return '<select onchange="switchAdVariant(\'' + ad.id + '\',this.value)" style="margin-top:5px;width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:3px 6px;font-family:\'Inter\',sans-serif;font-size:11px;color:var(--text2);outline:none;cursor:pointer">' +
-                  variants.map((v,i) => '<option value="'+v.id+'" '+(ad.variantId===v.id?'selected':'')+'>#'+(i+1)+' '+escHtml(v.label||'Variant '+(i+1))+(v.lastLive?' · '+v.lastLive:'')+' </option>').join('') +
-                '</select>';
-              })()}
-              ${ad.note?`<div style="font-size:10px;color:var(--text3);margin-top:5px;padding-top:5px;border-top:1px solid var(--border);font-style:italic">${escHtml(ad.note)}</div>`:''}
-            </div>`;
-          }).join('')}
-          <button onclick="openAdModal(null,'${country.id}')" style="background:none;border:1px dashed var(--border2);border-radius:6px;padding:7px;cursor:pointer;color:var(--text3);font-size:12px;font-weight:600;width:100%;transition:all 0.15s" onmouseover="this.style.borderColor='var(--low)';this.style.color='var(--low)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">+ Add Ad</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <label style="font-size:12px;color:var(--text3);font-weight:600">Library:</label>
+      <select onchange="setCountryLibrary('${country.id}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-family:'Inter',sans-serif;font-size:13px;color:var(--text);outline:none;cursor:pointer;min-width:180px">
+        <option value="">— None —</option>
+        ${libraries.map(l => `<option value="${l.id}" ${l.id===country.libraryId?'selected':''}>${escHtml(l.name)} (${(l.ads||[]).length})</option>`).join('')}
+      </select>
+    </div>
+  </div>
+
+  ${lib ? renderCountryAds(country, lib) : `
+    <div style="background:var(--bg2);border:1px dashed var(--border2);border-radius:var(--radius);padding:32px;text-align:center;color:var(--text3)">
+      <i class="fa-solid fa-database" style="font-size:24px;display:block;margin-bottom:10px"></i>
+      <div style="margin-bottom:12px">No library loaded for ${escHtml(country.name)}</div>
+      <div style="font-size:12px">Select a library from the dropdown above, or <button onclick="setAdBoardTab('libraries')" style="background:none;border:none;color:var(--low);cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;text-decoration:underline">create one</button>.</div>
+    </div>`}
+  `;
+}
+
+function renderCountryAds(country, lib) {
+  const stages = adBoardData.stages || [];
+  const liveStage = stages.find(s => s.isLive);
+  const ads = lib.ads || [];
+  if (!ads.length) {
+    return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:24px;text-align:center;color:var(--text3)">
+      Library "${escHtml(lib.name)}" has no ads yet. <button onclick="setAdBoardTab('libraries')" style="background:none;border:none;color:var(--low);cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;text-decoration:underline">Add ads</button>
+    </div>`;
+  }
+
+  // Get country-specific overrides (stage + variant per ad)
+  if (!country.adState) country.adState = {};
+
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px">
+    ${ads.map(ad => {
+      const state = country.adState[ad.id] || {};
+      const stage = stages.find(s => s.id === state.stageId);
+      const color = stage?.color || '#666';
+      const isLive = stage?.isLive || false;
+      const variants = ad.variants || [];
+      const activeVariant = variants.find(v => v.id === state.variantId);
+      const lastEdited = state.lastEdited ? new Date(state.lastEdited).toLocaleDateString('en-AU',{day:'2-digit',month:'short'}) : '';
+      const daysLive = isLive && state.liveDate ? Math.round((new Date()-new Date(state.liveDate+'T00:00:00'))/86400000) : 0;
+      const isStale = isLive && daysLive >= 14;
+
+      return `<div style="background:var(--bg3);border:1px solid ${isStale?'rgba(240,184,77,0.4)':isLive?color+'44':'var(--border)'};border-radius:var(--radius-sm);padding:12px 14px;${isStale?'border-left:3px solid var(--med)':isLive?'border-left:3px solid '+color:''}">
+        ${isStale?`<div style="font-size:10px;font-weight:700;color:var(--med);background:var(--med-bg);border-radius:4px;padding:2px 7px;margin-bottom:8px;display:inline-flex;align-items:center;gap:4px"><i class="fa-solid fa-rotate" style="font-size:9px"></i> Live ${daysLive}d — needs refresh</div>`:''}
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:8px">
+          <div style="width:9px;height:9px;border-radius:50%;background:${color};flex-shrink:0;${isLive?'box-shadow:0 0 6px '+color:''}"></div>
+          <span style="font-size:13px;font-weight:800;color:${isLive?'var(--text)':'var(--text2)'};flex:1;opacity:${isLive?1:0.75}">${escHtml(ad.name)}${activeVariant?`<span style="font-size:11px;color:var(--accent);font-family:'JetBrains Mono',monospace;margin-left:5px;font-weight:700">: ${escHtml(activeVariant.label)}</span>`:''}</span>
         </div>
+        <!-- Variant picker -->
+        ${variants.length ? `<div style="margin-bottom:6px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Variant</div>
+          <select onchange="setCountryAdVariant('${country.id}','${ad.id}',this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text);outline:none;cursor:pointer">
+            <option value="">— No variant —</option>
+            ${variants.map((v,i) => `<option value="${v.id}" ${state.variantId===v.id?'selected':''}>#${i+1} ${escHtml(v.label||'Variant '+(i+1))}</option>`).join('')}
+          </select>
+        </div>` : ''}
+        <!-- Stage picker -->
+        <div style="margin-bottom:6px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Stage</div>
+          <select onchange="setCountryAdStage('${country.id}','${ad.id}',this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text);outline:none;cursor:pointer">
+            <option value="">— No stage —</option>
+            ${stages.map(s => `<option value="${s.id}" ${state.stageId===s.id?'selected':''}>${escHtml(s.name)}</option>`).join('')}
+          </select>
+        </div>
+        ${isLive ? `<div style="margin-bottom:6px">
+          <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Live Since</div>
+          <input type="date" value="${state.liveDate||''}" onchange="setCountryAdLiveDate('${country.id}','${ad.id}',this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text);outline:none">
+        </div>` : ''}
+        ${lastEdited?`<div style="font-size:10px;color:var(--text3);margin-top:4px">✎ ${lastEdited}</div>`:''}
       </div>`;
     }).join('')}
   </div>`;
 }
 
+// ── COUNTRY AD STATE SETTERS ─────────────────────────────────
+function setCountryLibrary(countryId, libraryId) {
+  const c = adBoardData.countries.find(x => x.id === countryId);
+  if (!c) return;
+  c.libraryId = libraryId || null;
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+function ensureAdState(country, adId) {
+  if (!country.adState) country.adState = {};
+  if (!country.adState[adId]) country.adState[adId] = {};
+  return country.adState[adId];
+}
+
+function setCountryAdVariant(countryId, adId, variantId) {
+  const c = adBoardData.countries.find(x => x.id === countryId);
+  if (!c) return;
+  const state = ensureAdState(c, adId);
+  state.variantId = variantId || null;
+  state.lastEdited = new Date().toISOString();
+  saveAdBoard();
+  // Don't re-render whole panel — variant selector value is already updated
+}
+
+function setCountryAdStage(countryId, adId, stageId) {
+  const c = adBoardData.countries.find(x => x.id === countryId);
+  if (!c) return;
+  const state = ensureAdState(c, adId);
+  state.stageId = stageId || null;
+  state.lastEdited = new Date().toISOString();
+  const liveStage = adBoardData.stages.find(s => s.isLive);
+  if (liveStage && stageId === liveStage.id && !state.liveDate) {
+    state.liveDate = new Date().toISOString().split('T')[0];
+  }
+  saveAdBoard();
+  renderAdBoardContent(); // re-render for live styling
+}
+
+function setCountryAdLiveDate(countryId, adId, date) {
+  const c = adBoardData.countries.find(x => x.id === countryId);
+  if (!c) return;
+  const state = ensureAdState(c, adId);
+  state.liveDate = date || null;
+  state.lastEdited = new Date().toISOString();
+  saveAdBoard();
+}
+
+// ── LIBRARIES VIEW ────────────────────────────────────────────
+let activeLibraryId = null;
+
+function renderLibrariesView() {
+  if (!adBoardData.libraries) adBoardData.libraries = [];
+  const libs = adBoardData.libraries;
+
+  // Default to first library or 'new'
+  if (!activeLibraryId || !libs.find(l => l.id === activeLibraryId)) {
+    activeLibraryId = libs[0]?.id || null;
+  }
+  const active = libs.find(l => l.id === activeLibraryId);
+
+  return `
+    <!-- Library tabs -->
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid var(--border);padding-bottom:12px">
+      ${libs.map(l => {
+        const isActive = l.id === activeLibraryId;
+        const usedBy = (adBoardData.countries||[]).filter(c => c.libraryId === l.id).length;
+        return `<button onclick="setActiveLibrary('${l.id}')" style="background:${isActive?'var(--bg2)':'var(--bg3)'};border:1px solid ${isActive?'var(--low)':'var(--border)'};border-radius:var(--radius-sm);padding:6px 12px;cursor:pointer;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:${isActive?'var(--low)':'var(--text2)'};display:flex;align-items:center;gap:6px;white-space:nowrap">
+          <i class="fa-solid fa-database" style="font-size:10px"></i>
+          ${escHtml(l.name)}
+          <span style="font-size:10px;background:var(--bg3);border-radius:8px;padding:1px 6px;color:var(--text3);font-family:'JetBrains Mono',monospace">${(l.ads||[]).length}</span>
+          ${usedBy>0?`<span style="font-size:9px;color:var(--text3)">· ${usedBy} ${usedBy===1?'country':'countries'}</span>`:''}
+        </button>`;
+      }).join('')}
+      <button onclick="addLibrary()" style="background:none;border:1px dashed var(--border2);border-radius:var(--radius-sm);padding:6px 12px;cursor:pointer;color:var(--text3);font-family:'Inter',sans-serif;font-size:12px;font-weight:600" onmouseover="this.style.borderColor='var(--low)';this.style.color='var(--low)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'"><i class="fa-solid fa-plus" style="font-size:10px;margin-right:4px"></i>New Library</button>
+    </div>
+
+    ${active ? renderLibraryEditor(active) : `<div style="text-align:center;padding:40px;color:var(--text3)">
+      <i class="fa-solid fa-database" style="font-size:28px;display:block;margin-bottom:10px"></i>
+      No libraries yet. Click <strong>New Library</strong> to create one.
+    </div>`}
+  `;
+}
+
+function setActiveLibrary(id) {
+  activeLibraryId = id;
+  renderAdBoardContent();
+}
+
+function renderLibraryEditor(lib) {
+  return `<div style="max-width:760px">
+    <!-- Library header -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <input type="text" value="${escHtml(lib.name)}" onchange="renameLibrary('${lib.id}',this.value)" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px 12px;font-family:'Inter',sans-serif;font-size:16px;font-weight:800;color:var(--text);outline:none">
+      <button onclick="duplicateLibrary('${lib.id}')" style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 12px;cursor:pointer;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--text2)" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text2)'"><i class="fa-solid fa-copy" style="margin-right:4px;font-size:10px"></i>Duplicate</button>
+      <button onclick="deleteLibrary('${lib.id}')" class="task-act-btn del" style="font-size:11px"><i class="fa-solid fa-trash"></i></button>
+    </div>
+
+    <!-- Ads list with variants -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
+      ${(lib.ads||[]).length ? lib.ads.map(ad => {
+        const variants = ad.variants || [];
+        return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:${variants.length?'1px solid var(--border)':'none'}">
+            <input type="text" value="${escHtml(ad.name)}" onchange="renameLibAd('${lib.id}','${ad.id}',this.value)" style="flex:1;background:none;border:none;font-size:13px;font-weight:700;color:var(--text);outline:none;padding:2px 0">
+            <button onclick="addLibVariant('${lib.id}','${ad.id}')" style="background:none;border:1px dashed var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;font-weight:600" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">+ Variant</button>
+            <button class="task-act-btn del" onclick="deleteLibAd('${lib.id}','${ad.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          ${variants.length ? variants.map((v,vi) => `
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 12px 7px 24px;border-bottom:1px solid var(--border);background:var(--bg2)">
+              <span style="font-size:11px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;width:32px;flex-shrink:0">#${vi+1}</span>
+              <input type="text" value="${escHtml(v.label||'Variant '+(vi+1))}" onchange="renameLibVariant('${lib.id}','${ad.id}','${v.id}',this.value)" style="flex:1;background:none;border:none;font-size:12px;color:var(--text2);outline:none;padding:2px 0">
+              <button class="task-act-btn del" onclick="deleteLibVariant('${lib.id}','${ad.id}','${v.id}')" style="font-size:9px;opacity:0.6"><i class="fa-solid fa-xmark"></i></button>
+            </div>`).join('') : ''}
+        </div>`;
+      }).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in this library yet.</div>'}
+    </div>
+
+    <!-- Add ad row -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add Ad to "${escHtml(lib.name)}"</div>
+      <div style="display:flex;gap:8px">
+        <input class="subtask-input" id="newLibAdName" type="text" placeholder="Ad name… e.g. SCC" style="flex:1" onkeydown="if(event.key==='Enter')addLibAdToCurrent()">
+        <button class="subtask-add-btn" onclick="addLibAdToCurrent()"><i class="fa-solid fa-plus" style="margin-right:4px;font-size:10px"></i>Add</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── LIBRARY CRUD ──────────────────────────────────────────────
+function addLibrary() {
+  const name = prompt('Library name:', 'Library ' + ((adBoardData.libraries?.length||0) + 1));
+  if (!name) return;
+  if (!adBoardData.libraries) adBoardData.libraries = [];
+  const lib = { id: uid(), name: name.trim(), ads: [] };
+  adBoardData.libraries.push(lib);
+  activeLibraryId = lib.id;
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+function renameLibrary(libId, name) {
+  const lib = adBoardData.libraries.find(l => l.id === libId);
+  if (lib) { lib.name = name.trim() || 'Untitled'; saveAdBoard(); }
+}
+
+function duplicateLibrary(libId) {
+  const lib = adBoardData.libraries.find(l => l.id === libId);
+  if (!lib) return;
+  const copy = JSON.parse(JSON.stringify(lib));
+  copy.id = uid();
+  copy.name = lib.name + ' (copy)';
+  // New IDs for ads and variants so they're independent
+  copy.ads = (copy.ads||[]).map(ad => ({
+    ...ad, id: uid(),
+    variants: (ad.variants||[]).map(v => ({...v, id: uid()}))
+  }));
+  adBoardData.libraries.push(copy);
+  activeLibraryId = copy.id;
+  saveAdBoard();
+  renderAdBoardContent();
+  showToast('Library duplicated ✓');
+}
+
+function deleteLibrary(libId) {
+  if (!confirm('Delete this library? Countries using it will become un-loaded.')) return;
+  adBoardData.libraries = adBoardData.libraries.filter(l => l.id !== libId);
+  // Unset library from countries
+  (adBoardData.countries||[]).forEach(c => { if (c.libraryId === libId) c.libraryId = null; });
+  activeLibraryId = adBoardData.libraries[0]?.id || null;
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+function addLibAdToCurrent() {
+  const lib = adBoardData.libraries.find(l => l.id === activeLibraryId);
+  if (!lib) return;
+  const inp = document.getElementById('newLibAdName');
+  const name = inp.value.trim();
+  if (!name) return;
+  if (!lib.ads) lib.ads = [];
+  lib.ads.push({ id: uid(), name, variants: [] });
+  inp.value = '';
+  saveAdBoard();
+  renderAdBoardContent();
+  setTimeout(() => document.getElementById('newLibAdName')?.focus(), 50);
+}
+
+function renameLibAd(libId, adId, name) {
+  const lib = adBoardData.libraries.find(l => l.id === libId);
+  const ad = lib?.ads.find(a => a.id === adId);
+  if (ad) { ad.name = name.trim() || 'Untitled'; saveAdBoard(); }
+}
+
+function deleteLibAd(libId, adId) {
+  const lib = adBoardData.libraries.find(l => l.id === libId);
+  if (!lib) return;
+  lib.ads = lib.ads.filter(a => a.id !== adId);
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+function addLibVariant(libId, adId) {
+  const lib = adBoardData.libraries.find(l => l.id === libId);
+  const ad = lib?.ads.find(a => a.id === adId);
+  if (!ad) return;
+  if (!ad.variants) ad.variants = [];
+  const num = ad.variants.length + 1;
+  ad.variants.push({ id: uid(), label: 'Version ' + num });
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+function renameLibVariant(libId, adId, variantId, label) {
+  const lib = adBoardData.libraries.find(l => l.id === libId);
+  const ad = lib?.ads.find(a => a.id === adId);
+  const v = ad?.variants.find(x => x.id === variantId);
+  if (v) { v.label = label.trim() || 'Untitled'; saveAdBoard(); }
+}
+
+function deleteLibVariant(libId, adId, variantId) {
+  const lib = adBoardData.libraries.find(l => l.id === libId);
+  const ad = lib?.ads.find(a => a.id === adId);
+  if (!ad) return;
+  ad.variants = (ad.variants||[]).filter(v => v.id !== variantId);
+  saveAdBoard();
+  renderAdBoardContent();
+}
+
+// ── SETTINGS ──────────────────────────────────────────────────
 function renderAdSettings() {
-  const { stages, countries } = adBoardData;
-  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:700px">
+  const stages = adBoardData.stages || [];
+  const countries = adBoardData.countries || [];
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:800px">
     <!-- Stages -->
     <div>
       <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px">Pipeline Stages</div>
       ${stages.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px">
-        <div style="width:10px;height:10px;border-radius:50%;background:${s.color};flex-shrink:0"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:${s.color}"></div>
         <span style="flex:1;font-size:13px;font-weight:600;color:var(--text)">${escHtml(s.name)}</span>
         ${s.isLive?`<span style="font-size:10px;color:var(--low);font-weight:700;background:var(--low-bg);border-radius:8px;padding:1px 7px">LIVE</span>`:''}
         <button class="task-act-btn del" onclick="deleteStage('${s.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
@@ -7223,13 +7570,13 @@ function renderAdSettings() {
       <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
         <input class="subtask-input" id="newStageName" type="text" placeholder="Stage name…" style="flex:1;min-width:100px" onkeydown="if(event.key==='Enter')addStage()">
         <input type="color" id="newStageColor" value="#4f8ef7" style="width:36px;height:36px;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--bg3);padding:2px">
-        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer"><input type="checkbox" id="newStageIsLive"> Live stage</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text3);cursor:pointer"><input type="checkbox" id="newStageIsLive"> Live</label>
         <button class="subtask-add-btn" onclick="addStage()">+ Add</button>
       </div>
     </div>
     <!-- Countries -->
     <div>
-      <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px">Countries / Markets</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text2);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px">Countries</div>
       ${countries.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px">
         <span style="font-size:18px">${c.flag||'🌍'}</span>
         <span style="flex:1;font-size:13px;font-weight:600;color:var(--text)">${escHtml(c.name)}</span>
@@ -7244,237 +7591,34 @@ function renderAdSettings() {
   </div>`;
 }
 
-
-function renderAdLibrary() {
-  const lib = adBoardData.library || [];
-  return `<div style="max-width:760px">
-    <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">
-      Build your master ad list here. Each ad can have multiple variants (e.g. SCC #1, SCC #2). When deployed to a country, you select which variant is active.
-    </div>
-
-    <!-- Library list with variants -->
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-      ${lib.length ? lib.map(ad => {
-        const variants = ad.variants || [];
-        return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
-          <!-- Ad header -->
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:${variants.length?'1px solid var(--border)':'none'}">
-            <span style="flex:1;font-size:13px;font-weight:700;color:var(--text)">${escHtml(ad.name)}</span>
-            ${ad.note?`<span style="font-size:11px;color:var(--text3);font-style:italic">${escHtml(ad.note)}</span>`:''}
-            <button onclick="addVariant('${ad.id}')" style="background:none;border:1px dashed var(--border2);border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;font-weight:600;transition:all 0.15s;white-space:nowrap" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">+ Variant</button>
-            <button class="task-act-btn del" onclick="deleteLibraryAd('${ad.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
-          </div>
-          <!-- Variants -->
-          ${variants.length ? `<div style="display:flex;flex-direction:column;gap:0">
-            ${variants.map((v,vi) => `
-              <div style="display:flex;align-items:center;gap:8px;padding:7px 12px 7px 24px;border-bottom:1px solid var(--border);background:var(--bg2)">
-                <span style="font-size:11px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;width:32px;flex-shrink:0">#${vi+1}</span>
-                <span style="flex:1;font-size:12px;color:var(--text2)">${escHtml(v.label||'Variant '+(vi+1))}</span>
-                ${v.lastLive?`<span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">Last live: ${v.lastLive}</span>`:'<span style="font-size:10px;color:var(--text3)">Never live</span>'}
-                <button class="task-act-btn del" onclick="deleteVariant('${ad.id}','${v.id}')" style="font-size:9px;opacity:0.6"><i class="fa-solid fa-xmark"></i></button>
-              </div>`).join('')}
-          </div>` : `<div style="padding:7px 12px 7px 24px;font-size:11px;color:var(--text3)">No variants — <button onclick="addVariant('${ad.id}')" style="background:none;border:none;cursor:pointer;color:var(--accent);font-size:11px;font-family:'Inter',sans-serif;padding:0">add one</button></div>`}
-        </div>`;
-      }).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in library yet.</div>'}
-    </div>
-
-    <!-- Add to library -->
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px">
-      <div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Add Ad to Library</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <input class="subtask-input" id="libAdName" type="text" placeholder="Ad name… e.g. SCC, Summer Sale" style="flex:1;min-width:180px" onkeydown="if(event.key==='Enter')addLibraryAd()">
-        <input class="subtask-input" id="libAdNote" type="text" placeholder="Note (optional)" style="width:140px">
-        <button class="subtask-add-btn" onclick="addLibraryAd()" style="white-space:nowrap"><i class="fa-solid fa-plus" style="margin-right:4px;font-size:10px"></i>Save to Library</button>
-      </div>
-    </div>
-
-    <!-- Deploy to countries -->
-    ${lib.length && adBoardData.countries.length ? `
-    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px">
-      <div style="font-size:12px;font-weight:700;color:var(--text2);margin-bottom:10px;text-transform:uppercase;letter-spacing:0.5px">
-        <i class="fa-solid fa-rocket" style="color:var(--low);margin-right:6px"></i>Deploy Library to Countries
-      </div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Deploys all ads (using their first variant) to the selected countries at the chosen stage.</div>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px" id="deployCountryPicker">
-        ${adBoardData.countries.map(c => `
-          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;font-size:12px;font-weight:600;color:var(--text2)">
-            <input type="checkbox" value="${c.id}" style="cursor:pointer"> ${c.flag||'🌍'} ${escHtml(c.name)}
-          </label>`).join('')}
-      </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <select class="form-select" id="deployStage" style="width:180px;font-size:12px">
-          ${adBoardData.stages.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
-        </select>
-        <button class="subtask-add-btn" onclick="deployLibraryToCountries()" style="white-space:nowrap;background:var(--low-bg);border-color:rgba(77,207,142,0.3);color:var(--low)">
-          <i class="fa-solid fa-rocket" style="margin-right:4px;font-size:10px"></i>Deploy to Selected
-        </button>
-      </div>
-    </div>` : ''}
-  </div>`;
-}
-
-function addVariant(adId) {
-  const ad = (adBoardData.library||[]).find(a => a.id === adId);
-  if (!ad) return;
-  if (!ad.variants) ad.variants = [];
-  const num = ad.variants.length + 1;
-  const label = prompt(`Variant label for ${ad.name} #${num}:`, `Version ${num}`);
-  if (!label) return;
-  ad.variants.push({ id: uid(), label, lastLive: null });
-  saveAdBoard(); renderContent();
-}
-
-function deleteVariant(adId, variantId) {
-  const ad = (adBoardData.library||[]).find(a => a.id === adId);
-  if (!ad) return;
-  ad.variants = (ad.variants||[]).filter(v => v.id !== variantId);
-  saveAdBoard(); renderContent();
-}
-
-function addLibraryAd() {
-  const name = document.getElementById('libAdName').value.trim();
-  const note = document.getElementById('libAdNote').value.trim();
-  if (!name) return;
-  if (!adBoardData.library) adBoardData.library = [];
-  if (!adBoardData.groups) adBoardData.groups = [];
-  adBoardData.library.push({ id: uid(), name, note });
-  document.getElementById('libAdName').value = '';
-  document.getElementById('libAdNote').value = '';
-  saveAdBoard(); renderContent();
-}
-
-function deleteLibraryAd(id) {
-  adBoardData.library = (adBoardData.library||[]).filter(a => a.id !== id);
-  saveAdBoard(); renderContent();
-}
-
-function deployLibraryToCountries() {
-  const stageEl = document.getElementById('deployStage');
-  const stage   = stageEl?.value;
-  if (!stage) { showToast('Select a stage first'); return; }
-
-  const checkboxes = document.querySelectorAll('#deployCountryPicker input[type="checkbox"]:checked');
-  const selectedCountries = Array.from(checkboxes).map(cb => cb.value);
-  if (!selectedCountries.length) { showToast('Select at least one country'); return; }
-
-  const now = new Date().toISOString();
-  let added = 0;
-  selectedCountries.forEach(countryId => {
-    (adBoardData.library||[]).forEach(libAd => {
-      // Skip if this exact ad already exists for this country
-      const exists = adBoardData.ads.some(a => a.name === libAd.name && a.countryId === countryId);
-      if (!exists) {
-        const firstVariant = (libAd.variants||[])[0];
-        adBoardData.ads.push({
-          id: uid(), name: libAd.name, note: libAd.note||'',
-          libraryId: libAd.id,
-          variantId: firstVariant?.id || null,
-          variantLabel: firstVariant?.label || null,
-          stage, countryId, liveDate: '', lastEdited: now, addedAt: now
-        });
-        added++;
-      }
-    });
-  });
-
-  saveAdBoard(); renderContent();
-  showToast(`${added} ads deployed to ${selectedCountries.length} countr${selectedCountries.length>1?'ies':'y'} ✓`);
-}
-
-// ── AD CRUD ───────────────────────────────────────────────────
-let editAdId = null;
-function openAdModal(adId, defaultCountryId) {
-  editAdId = adId || null;
-  const ad = adId ? adBoardData.ads.find(a => a.id === adId) : null;
-  document.getElementById('adModal').style.display = 'flex';
-  document.getElementById('adName').value     = ad?.name || '';
-  document.getElementById('adNote').value     = ad?.note || '';
-  document.getElementById('adLiveDate').value = ad?.liveDate || '';
-  // Populate dropdowns
-  const stageSel = document.getElementById('adStage');
-  stageSel.innerHTML = adBoardData.stages.map(s =>
-    `<option value="${s.id}" ${ad?.stage===s.id?'selected':''}>${s.name}</option>`
-  ).join('');
-  const countrySel = document.getElementById('adCountry');
-  countrySel.innerHTML = adBoardData.countries.map(c =>
-    `<option value="${c.id}" ${(ad?.countryId||defaultCountryId)===c.id?'selected':''}>${c.flag||''} ${c.name}</option>`
-  ).join('');
-  // Variant dropdown — find matching library ad
-  const variantGroup = document.getElementById('adVariantGroup');
-  const variantSel   = document.getElementById('adVariant');
-  const libAd = ad?.libraryId ? (adBoardData.library||[]).find(l=>l.id===ad.libraryId) : null;
-  const variants = libAd?.variants || [];
-  if (variants.length) {
-    variantSel.innerHTML = `<option value="">— No variant —</option>` + variants.map((v,i) =>
-      `<option value="${v.id}" ${ad?.variantId===v.id?'selected':''}>#${i+1} ${escHtml(v.label||'Variant '+(i+1))}${v.lastLive?' · last live: '+v.lastLive:''}</option>`
-    ).join('');
-    variantGroup.style.display = 'block';
-  } else {
-    variantGroup.style.display = 'none';
-  }
-  setTimeout(() => document.getElementById('adName').focus(), 50);
-}
-function closeAdModal() { document.getElementById('adModal').style.display = 'none'; }
-function saveAd() {
-  const name      = document.getElementById('adName').value.trim();
-  const stage     = document.getElementById('adStage').value;
-  const countryId = document.getElementById('adCountry').value;
-  const liveDate  = document.getElementById('adLiveDate').value;
-  const note      = document.getElementById('adNote').value.trim();
-  if (!name) { document.getElementById('adName').focus(); return; }
-  const now = new Date().toISOString();
-  if (editAdId) {
-    const ad = adBoardData.ads.find(a => a.id === editAdId);
-    if (ad) { ad.name=name; ad.stage=stage; ad.countryId=countryId; ad.liveDate=liveDate; ad.note=note; ad.lastEdited=now; }
-  } else {
-    adBoardData.ads.push({ id:uid(), name, stage, countryId, liveDate, note, lastEdited:now, addedAt:now });
-  }
-  saveAdBoard(); closeAdModal(); renderContent();
-}
-function switchAdVariant(adId, variantId) {
-  const ad = adBoardData.ads.find(a => a.id === adId);
-  if (!ad) return;
-  const libAd = ad.libraryId ? (adBoardData.library||[]).find(l=>l.id===ad.libraryId) : null;
-  const variant = libAd?.variants?.find(v=>v.id===variantId);
-  ad.variantId = variantId;
-  ad.variantLabel = variant?.label||null;
-  ad.lastEdited = new Date().toISOString();
-  saveAdBoard(); renderContent();
-}
-
-function deleteAd(id) {
-  if (!confirm('Delete this ad?')) return;
-  adBoardData.ads = adBoardData.ads.filter(a => a.id !== id);
-  saveAdBoard(); renderContent();
-}
-
-// ── STAGE / COUNTRY CRUD ─────────────────────────────────────
 function addStage() {
   const name = document.getElementById('newStageName').value.trim();
   const color = document.getElementById('newStageColor').value;
   const isLive = document.getElementById('newStageIsLive').checked;
   if (!name) return;
   adBoardData.stages.push({ id: uid(), name, color, isLive });
-  saveAdBoard(); renderContent();
+  saveAdBoard();
+  renderAdBoardContent();
 }
 function deleteStage(id) {
   adBoardData.stages = adBoardData.stages.filter(s => s.id !== id);
-  saveAdBoard(); renderContent();
+  saveAdBoard();
+  renderAdBoardContent();
 }
 function addCountry() {
   const flag = document.getElementById('newCountryFlag').value.trim();
   const name = document.getElementById('newCountryName').value.trim();
   if (!name) return;
-  adBoardData.countries.push({ id: uid(), name, flag });
-  saveAdBoard(); renderContent();
+  adBoardData.countries.push({ id: uid(), name, flag, libraryId: null, adState: {} });
+  saveAdBoard();
+  renderAdBoardContent();
 }
 function deleteCountry(id) {
   adBoardData.countries = adBoardData.countries.filter(c => c.id !== id);
-  saveAdBoard(); renderContent();
+  saveAdBoard();
+  renderAdBoardContent();
 }
 
-
-// ============================================================
 // REGIONAL GROUPS
 // ============================================================
 let editGroupId = null;

@@ -395,13 +395,28 @@ function render() {
   document.getElementById('board').insertAdjacentHTML('beforebegin', groupsHtml);
 
   board.innerHTML = countries.map(country => {
-    const countryAds = ads.filter(a => a.countryId === country.id)
-      .sort((a,b) => {
-        // Live ads first
-        const aLive = stages.find(s=>s.id===a.stage)?.isLive ? 0 : 1;
-        const bLive = stages.find(s=>s.id===b.stage)?.isLive ? 0 : 1;
-        return aLive - bLive;
-      });
+    // Build country ads from library + adState
+    const lib = (adData.libraries||[]).find(l => l.id === country.libraryId);
+    const libAds = lib?.ads || [];
+    const adState = country.adState || {};
+    const countryAds = libAds.map(libAd => {
+      const state = adState[libAd.id] || {};
+      const stage = stages.find(s => s.id === state.stageId);
+      const variant = (libAd.variants||[]).find(v => v.id === state.variantId);
+      return {
+        id: libAd.id,
+        name: libAd.name,
+        variantLabel: variant?.label || null,
+        stage: state.stageId,
+        liveDate: state.liveDate,
+        lastEdited: state.lastEdited,
+        note: ''
+      };
+    }).sort((a,b) => {
+      const aLive = stages.find(s=>s.id===a.stage)?.isLive ? 0 : 1;
+      const bLive = stages.find(s=>s.id===b.stage)?.isLive ? 0 : 1;
+      return aLive - bLive;
+    });
     const liveCt = countryAds.filter(a => stages.find(s=>s.id===a.stage)?.isLive).length;
 
     return `<div class="country-col">
@@ -418,7 +433,7 @@ function render() {
           return `<div class="ad-card ${isLive?'is-live':''}">
             <div class="ad-card-top">
               <div class="ad-status-dot ${isLive?'is-live':''}" style="background:${color};${isLive?'box-shadow:0 0 6px '+color:''}"></div>
-              <span class="ad-name ${isLive?'':'not-live'}">${ad.name}</span>
+              <span class="ad-name ${isLive?'':'not-live'}">${ad.name}${ad.variantLabel?'<span style="font-size:11px;color:#9d7dff;font-family:JetBrains Mono,monospace;margin-left:5px;font-weight:700">: '+ad.variantLabel+'</span>':''}</span>
               <span class="ad-stage-badge" style="color:${color};border-color:${color}50;background:${color}15">${stage?.name||'Unknown'}</span>
             </div>
             <div class="ad-meta">
