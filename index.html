@@ -7727,34 +7727,45 @@ function renderProductionView() {
   const stages = adBoardData.stages || [];
   return `<div style="max-width:900px">
     <div style="font-size:12px;color:var(--text3);margin-bottom:16px;line-height:1.6">
-      Build ads here and track each variant through your pipeline. Approved or Live variants become available to add to libraries.
+      Build ads here and track each variant through your pipeline. Click an ad to expand its variants.
     </div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
       ${prod.length ? prod.map(ad => {
         const variants = ad.variants || [];
+        const isExpanded = ad._expanded !== false; // default open
+        const readyCount = variants.filter(isVariantReady).length;
         return `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
-          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:${variants.length?'1px solid var(--border)':'none'}">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:${isExpanded && variants.length?'1px solid var(--border)':'none'}">
+            <button onclick="toggleProdAd('${ad.id}')" style="background:none;border:none;cursor:pointer;color:var(--text3);padding:2px 4px;font-size:12px;transition:transform 0.15s;transform:rotate(${isExpanded?'90':'0'}deg)"><i class="fa-solid fa-chevron-right"></i></button>
             <input type="text" value="${escHtml(ad.name)}" onchange="renameProdAd('${ad.id}',this.value)" style="flex:1;background:none;border:none;font-size:14px;font-weight:800;color:var(--text);outline:none;padding:2px 0">
-            <span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace">${variants.length} variant${variants.length!==1?'s':''}</span>
+            <span style="font-size:10px;color:var(--text3);font-family:'JetBrains Mono',monospace;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:1px 7px">${variants.length} variant${variants.length!==1?'s':''}</span>
+            ${readyCount?`<span style="font-size:10px;font-weight:700;color:var(--low);background:var(--low-bg);border:1px solid rgba(77,207,142,0.3);border-radius:8px;padding:1px 7px">${readyCount} ready</span>`:''}
             <button onclick="addProdVariant('${ad.id}')" style="background:none;border:1px dashed var(--border2);border-radius:4px;padding:3px 10px;cursor:pointer;font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;font-weight:600" onmouseover="this.style.borderColor='var(--accent)';this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)';this.style.color='var(--text3)'">+ Variant</button>
             <button class="task-act-btn del" onclick="deleteProdAd('${ad.id}')" style="font-size:10px"><i class="fa-solid fa-trash"></i></button>
           </div>
-          ${variants.map((v,vi) => {
+          ${isExpanded ? variants.map((v,vi) => {
             const stage = stages.find(s => s.id === v.stageId);
             const color = stage?.color || '#666';
             const isReady = isVariantReady(v);
-            return `<div style="display:flex;align-items:center;gap:8px;padding:8px 12px 8px 24px;border-bottom:1px solid var(--border);background:var(--bg2)">
-              <span style="font-size:11px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;width:32px;flex-shrink:0">#${vi+1}</span>
-              <input type="text" value="${escHtml(v.label||'Variant '+(vi+1))}" onchange="renameProdVariant('${ad.id}','${v.id}',this.value)" style="flex:1;background:none;border:none;font-size:12px;color:var(--text2);outline:none;padding:2px 0">
-              <select onchange="setProdVariantStage('${ad.id}','${v.id}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text2);outline:none;cursor:pointer">
-                <option value="">— No stage —</option>
-                ${stages.map(s => `<option value="${s.id}" ${v.stageId===s.id?'selected':''}>${escHtml(s.name)}</option>`).join('')}
-              </select>
-              ${stage?`<span style="font-size:10px;font-weight:700;color:${color};background:${color}18;border:1px solid ${color}40;border-radius:8px;padding:1px 7px;white-space:nowrap">${escHtml(stage.name)}</span>`:''}
-              ${isReady?`<span style="font-size:9px;font-weight:700;color:var(--low);background:var(--low-bg);border-radius:8px;padding:1px 6px;white-space:nowrap" title="Ready for libraries">✓</span>`:''}
-              <button class="task-act-btn del" onclick="deleteProdVariant('${ad.id}','${v.id}')" style="font-size:9px;opacity:0.6"><i class="fa-solid fa-xmark"></i></button>
+            const noteOpen = v._noteOpen;
+            return `<div style="border-bottom:1px solid var(--border);background:var(--bg2)">
+              <div style="display:flex;align-items:center;gap:8px;padding:8px 12px 8px 32px">
+                <span style="font-size:11px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;width:32px;flex-shrink:0">#${vi+1}</span>
+                <input type="text" value="${escHtml(v.label||'Variant '+(vi+1))}" onchange="renameProdVariant('${ad.id}','${v.id}',this.value)" style="flex:1;background:none;border:none;font-size:12px;color:var(--text2);outline:none;padding:2px 0">
+                <select onchange="setProdVariantStage('${ad.id}','${v.id}',this.value)" style="background:var(--bg3);border:1px solid var(--border);border-radius:4px;padding:3px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text2);outline:none;cursor:pointer">
+                  <option value="">— No stage —</option>
+                  ${stages.map(s => `<option value="${s.id}" ${v.stageId===s.id?'selected':''}>${escHtml(s.name)}</option>`).join('')}
+                </select>
+                ${stage?`<span style="font-size:10px;font-weight:700;color:${color};background:${color}18;border:1px solid ${color}40;border-radius:8px;padding:1px 7px;white-space:nowrap">${escHtml(stage.name)}</span>`:''}
+                ${isReady?`<span style="font-size:9px;font-weight:700;color:var(--low);background:var(--low-bg);border-radius:8px;padding:1px 6px;white-space:nowrap" title="Ready for libraries">✓</span>`:''}
+                <button onclick="toggleVariantNote('${ad.id}','${v.id}')" style="background:${v.note||noteOpen?'var(--med-bg)':'none'};border:1px solid ${v.note||noteOpen?'rgba(240,184,77,0.3)':'var(--border)'};border-radius:4px;padding:3px 7px;cursor:pointer;font-size:10px;color:${v.note||noteOpen?'var(--med)':'var(--text3)'};font-family:'Inter',sans-serif;font-weight:600" title="${v.note?'Has notes':'Add notes'}"><i class="fa-solid fa-note-sticky" style="font-size:10px"></i></button>
+                <button class="task-act-btn del" onclick="deleteProdVariant('${ad.id}','${v.id}')" style="font-size:9px;opacity:0.6"><i class="fa-solid fa-xmark"></i></button>
+              </div>
+              ${noteOpen ? `<div style="padding:0 12px 10px 56px">
+                <textarea placeholder="Notes about this variant — e.g. specs, brief, ideas, feedback…" onchange="setVariantNote('${ad.id}','${v.id}',this.value)" style="width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius-sm);padding:7px 10px;font-family:'Inter',sans-serif;font-size:12px;color:var(--text);outline:none;resize:vertical;min-height:60px;line-height:1.5">${escHtml(v.note||'')}</textarea>
+              </div>` : v.note ? `<div style="padding:0 12px 8px 56px;font-size:11px;color:var(--text3);font-style:italic;line-height:1.5">${escHtml(v.note)}</div>` : ''}
             </div>`;
-          }).join('')}
+          }).join('') : ''}
         </div>`;
       }).join('') : '<div style="color:var(--text3);font-size:13px;padding:12px 0">No ads in production yet.</div>'}
     </div>
@@ -7766,6 +7777,25 @@ function renderProductionView() {
       </div>
     </div>
   </div>`;
+}
+
+function toggleProdAd(adId) {
+  const ad = getProdAd(adId);
+  if (!ad) return;
+  ad._expanded = ad._expanded === false;
+  renderAdBoardContent();
+}
+
+function toggleVariantNote(adId, vId) {
+  const v = getProdAd(adId)?.variants?.find(x => x.id === vId);
+  if (!v) return;
+  v._noteOpen = !v._noteOpen;
+  renderAdBoardContent();
+}
+
+function setVariantNote(adId, vId, note) {
+  const v = getProdAd(adId)?.variants?.find(x => x.id === vId);
+  if (v) { v.note = note.trim(); v.lastEdited = new Date().toISOString(); saveAdBoard(); }
 }
 
 function addProdAd() {
