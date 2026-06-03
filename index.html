@@ -3213,7 +3213,18 @@ async function loadData() {
   try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
   try { projects = JSON.parse(localStorage.getItem('wtm_projects') || '[]'); } catch { projects = []; }
   try { progTemplates = JSON.parse(localStorage.getItem('wtm_prog_templates') || '[]'); } catch { progTemplates = []; }
-  try { adBoardData = JSON.parse(localStorage.getItem('wtm_adboard') || '{}') || {stages:[],countries:[],ads:[]}; loadAdBoard(); } catch {}
+  try {
+    const saved = JSON.parse(localStorage.getItem('wtm_adboard') || '{}');
+    if (saved && Object.keys(saved).length) adBoardData = { stages:[], countries:[], libraries:[], groups:[], ...saved };
+    // Migration: old 'library' array → 'libraries'
+    if (adBoardData.library?.length && !adBoardData.libraries?.length) {
+      adBoardData.libraries = [{id:'lib_legacy',name:'Main Library',ads:adBoardData.library}];
+    }
+    if (!adBoardData.libraries) adBoardData.libraries = [];
+    if (!adBoardData.countries) adBoardData.countries = [];
+    adBoardData.countries.forEach(c => { if (!c.adState) c.adState = {}; });
+    loadAdBoard();
+  } catch {}
   const localTasks = [...tasks];
   const localLastPush = localStorage.getItem('wtm_last_push') || '0';
 
@@ -7131,13 +7142,15 @@ async function loadAdBoard() {
     // Only update if cloud has meaningful data
     const hasData = (data.stages?.length || data.countries?.length || data.libraries?.length || data.library?.length || data.groups?.length);
     if (hasData) {
-      adBoardData = { stages:[], countries:[], libraries:[], groups:[], ...data };
-      // Migration on load
-      if (!adBoardData.libraries) {
-        adBoardData.libraries = [];
-        if (adBoardData.library?.length) adBoardData.libraries.push({id:'lib_legacy',name:'Main Library',ads:adBoardData.library});
+      // Merge cloud data, don't overwrite with empties
+      const merged = { stages:[], countries:[], libraries:[], groups:[], ...adBoardData, ...data };
+      // Migration: old library array → libraries
+      if (merged.library?.length && !merged.libraries?.length) {
+        merged.libraries = [{id:'lib_legacy', name:'Main Library', ads: merged.library}];
       }
-      adBoardData.countries?.forEach(c => { if (!c.adState) c.adState = {}; });
+      if (!merged.libraries) merged.libraries = [];
+      merged.countries?.forEach(c => { if (!c.adState) c.adState = {}; });
+      adBoardData = merged;
       localStorage.setItem('wtm_adboard', JSON.stringify(adBoardData));
     }
   } catch(e) { console.warn('loadAdBoard failed:', e); }
@@ -7913,7 +7926,18 @@ function initApp() {
   try { semesterCourses = JSON.parse(localStorage.getItem('wtm_courses') || '[]'); } catch { semesterCourses = []; }
   try { projects = JSON.parse(localStorage.getItem('wtm_projects') || '[]'); } catch { projects = []; }
   try { progTemplates = JSON.parse(localStorage.getItem('wtm_prog_templates') || '[]'); } catch { progTemplates = []; }
-  try { adBoardData = JSON.parse(localStorage.getItem('wtm_adboard') || '{}') || {stages:[],countries:[],ads:[]}; loadAdBoard(); } catch {}
+  try {
+    const saved = JSON.parse(localStorage.getItem('wtm_adboard') || '{}');
+    if (saved && Object.keys(saved).length) adBoardData = { stages:[], countries:[], libraries:[], groups:[], ...saved };
+    // Migration: old 'library' array → 'libraries'
+    if (adBoardData.library?.length && !adBoardData.libraries?.length) {
+      adBoardData.libraries = [{id:'lib_legacy',name:'Main Library',ads:adBoardData.library}];
+    }
+    if (!adBoardData.libraries) adBoardData.libraries = [];
+    if (!adBoardData.countries) adBoardData.countries = [];
+    adBoardData.countries.forEach(c => { if (!c.adState) c.adState = {}; });
+    loadAdBoard();
+  } catch {}
   restoreTimers();
   checkWeeklyReset();
   checkCarryover();
