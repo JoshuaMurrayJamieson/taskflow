@@ -7304,7 +7304,6 @@ function renderCountryAds(country, lib) {
     ${ads.map(ad => {
       const state = country.adState[ad.id] || {};
       const variants = ad.variants || [];
-      const readyVariants = variants.filter(isVariantReady);
       const activeVariant = variants.find(v => v.id === state.variantId);
       const isLive = !!state.variantId && !!state.liveDate;
       const daysLive = isLive ? Math.round((new Date()-new Date(state.liveDate+'T00:00:00'))/86400000) : 0;
@@ -7317,16 +7316,13 @@ function renderCountryAds(country, lib) {
           <div style="width:9px;height:9px;border-radius:50%;background:${isLive?'var(--low)':'var(--text3)'};flex-shrink:0;${isLive?'box-shadow:0 0 6px var(--low)':''}"></div>
           <span style="font-size:13px;font-weight:800;color:${isLive?'var(--text)':'var(--text2)'};flex:1;opacity:${isLive?1:0.75}">${escHtml(ad.name)}${activeVariant?`<span style="font-size:11px;color:var(--accent);font-family:'JetBrains Mono',monospace;margin-left:5px;font-weight:700">: ${escHtml(activeVariant.label)}</span>`:''}</span>
         </div>
-        ${readyVariants.length ? `<div style="margin-bottom:6px">
+        ${variants.length ? `<div style="margin-bottom:6px">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Live Variant</div>
           <select onchange="setCountryAdVariant('${country.id}','${ad.id}',this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text);outline:none;cursor:pointer">
             <option value="">— Not live —</option>
-            ${readyVariants.map((v,i) => {
-              const stage = stages.find(s => s.id === v.stageId);
-              return `<option value="${v.id}" ${state.variantId===v.id?'selected':''}>${escHtml(v.label)}${stage?' · '+stage.name:''}</option>`;
-            }).join('')}
+            ${variants.map((v,i) => `<option value="${v.id}" ${state.variantId===v.id?'selected':''}>#${i+1} ${escHtml(v.label||'Variant '+(i+1))}</option>`).join('')}
           </select>
-        </div>` : `<div style="font-size:11px;color:var(--text3);font-style:italic">No approved/live variants in production yet</div>`}
+        </div>` : `<div style="font-size:11px;color:var(--text3);font-style:italic">No variants in production yet</div>`}
         ${state.variantId ? `<div style="margin-bottom:6px">
           <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px">Live Since</div>
           <input type="date" value="${state.liveDate||''}" onchange="setCountryAdLiveDate('${country.id}','${ad.id}',this.value)" style="width:100%;background:var(--bg2);border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-family:'Inter',sans-serif;font-size:11px;color:var(--text);outline:none">
@@ -7358,8 +7354,14 @@ function setCountryAdVariant(countryId, adId, variantId) {
   const state = ensureAdState(c, adId);
   state.variantId = variantId || null;
   state.lastEdited = new Date().toISOString();
+  // Auto-set live date when selecting a variant (or clear it when deselecting)
+  if (variantId) {
+    if (!state.liveDate) state.liveDate = new Date().toISOString().split('T')[0];
+  } else {
+    state.liveDate = null;
+  }
   saveAdBoard();
-  // Don't re-render whole panel — variant selector value is already updated
+  renderAdBoardContent();
 }
 
 function setCountryAdStage(countryId, adId, stageId) {
